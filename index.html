@@ -520,8 +520,17 @@
     return formatDate(monday) + ' 〜 ' + formatDate(sun) + '（月〜日）';
   }
 
+  function toJSTDate(dateStr) {
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    var jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return jst.toISOString().slice(0, 10);
+  }
+
   function inWeek(dateStr, monday) {
-    var t = parseISODate(dateStr);
+    var jstDate = toJSTDate(dateStr);
+    if (!jstDate) return false;
+    var t = parseISODate(jstDate);
     if (!t) return false;
     var m = getMonday(t);
     return formatDate(m) === formatDate(monday);
