@@ -104,14 +104,14 @@
       gap: 0.5rem 0.75rem;
       margin-bottom: 0.5rem;
     }
-    label { font-size: 0.85rem; color: var(--muted); }
+    label { font-size: 0.95rem; color: var(--muted); }
     input[type="text"],
     input[type="number"],
     input:not([type]) {
       padding: 0.45rem 0.5rem;
       border: 1px solid var(--border);
       border-radius: 4px;
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       max-width: 100%;
     }
     input:disabled {
@@ -124,7 +124,7 @@
       justify-content: center;
       gap: 0.25rem;
       padding: 0.5rem 0.9rem;
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 500;
       border: none;
       border-radius: 4px;
@@ -139,11 +139,11 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85rem;
+      font-size: 1rem;
     }
     th, td {
       border: 1px solid var(--border);
-      padding: 0.4rem 0.45rem;
+      padding: 0.52rem 0.55rem;
       text-align: left;
       vertical-align: middle;
     }
@@ -154,7 +154,7 @@
       display: inline-block;
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
-      font-size: 0.75rem;
+      font-size: 0.85rem;
       font-weight: 600;
       white-space: nowrap;
     }
@@ -163,11 +163,11 @@
     .badge-ok { background: #e2e8f0; color: var(--ok); }
     .badge-auto { background: #dbeafe; color: #1e40af; font-size: 0.7rem; }
     h2, h3 {
-      font-size: 0.95rem;
+      font-size: 1.1rem;
       margin: 0 0 0.5rem 0;
       color: #0f172a;
     }
-    h3 { font-size: 0.88rem; margin-top: 0.75rem; }
+    h3 { font-size: 1rem; margin-top: 0.75rem; }
     .section-title {
       display: flex;
       align-items: center;
@@ -184,9 +184,14 @@
       font-size: 1rem;
       line-height: 1;
     }
-    .meta-line { font-size: 0.85rem; color: var(--muted); margin: 0.25rem 0; }
-    .error-msg { color: var(--danger); font-size: 0.85rem; margin: 0.25rem 0; }
-    .ok-msg { color: #166534; font-size: 0.85rem; margin: 0.25rem 0; }
+    .meta-line { font-size: 0.95rem; color: var(--muted); margin: 0.25rem 0; }
+    .error-msg { color: var(--danger); font-size: 0.95rem; margin: 0.25rem 0; }
+    .ok-msg { color: #166534; font-size: 0.95rem; margin: 0.25rem 0; }
+    .hq-section-row td {
+      background: #eaf2ff !important;
+      font-weight: 700;
+      color: #1e3a5f;
+    }
     .read-row td { background: #f8fafc !important; }
     .settings-list {
       list-style: none;
@@ -909,12 +914,34 @@
     addKeys(mm);
     var names = Object.keys(all);
     names.sort();
+    var supplyProducts = Array.isArray(db.settings.supplyProducts) ? db.settings.supplyProducts : [];
+    var dailyProducts = Array.isArray(db.settings.dailyProducts) ? db.settings.dailyProducts : [];
+    var supplySet = {};
+    var dailySet = {};
+    for (var si = 0; si < supplyProducts.length; si++) supplySet[supplyProducts[si]] = true;
+    for (var di = 0; di < dailyProducts.length; di++) dailySet[dailyProducts[di]] = true;
+    var supplyNames = [];
+    var dailyNames = [];
+    var otherNames = [];
+    for (var ni = 0; ni < names.length; ni++) {
+      var n0 = names[ni];
+      if (supplySet[n0]) supplyNames.push(n0);
+      else if (dailySet[n0]) dailyNames.push(n0);
+      else otherNames.push(n0);
+    }
+    var orderedNames = supplyNames.concat(dailyNames).concat(otherNames);
 
     var tbody = document.getElementById('honbu-tbody');
     tbody.innerHTML = '';
     var sumN = 0, sumM = 0;
-    for (var i = 0; i < names.length; i++) {
-      var name = names[i];
+    function appendSectionRow(label) {
+      var trS = document.createElement('tr');
+      trS.className = 'hq-section-row';
+      trS.innerHTML = '<td colspan="9"></td>';
+      trS.cells[0].textContent = label;
+      tbody.appendChild(trS);
+    }
+    function appendDataRow(name) {
       var rn = mn[name] || {};
       var rm = mm[name] || {};
       var cn = parseFloat(rn.consumed);
@@ -944,6 +971,18 @@
       tr.cells[7].textContent = rm.replenish == null || rm.replenish === '' ? '—' : String(rm.replenish);
       tr.cells[8].innerHTML = '<span class="' + badgeClass(stM.key) + '">' + stM.label + '</span>';
       tbody.appendChild(tr);
+    }
+    if (supplyNames.length) {
+      appendSectionRow('オムツ・パット類');
+      for (var i = 0; i < supplyNames.length; i++) appendDataRow(supplyNames[i]);
+    }
+    if (dailyNames.length) {
+      appendSectionRow('日用品');
+      for (var j = 0; j < dailyNames.length; j++) appendDataRow(dailyNames[j]);
+    }
+    if (otherNames.length) {
+      appendSectionRow('その他');
+      for (var k2 = 0; k2 < otherNames.length; k2++) appendDataRow(otherNames[k2]);
     }
     if (!names.length) {
       var tr0 = document.createElement('tr');
