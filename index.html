@@ -631,7 +631,11 @@
   function fetchHq() {
     var elErr = document.getElementById('honbu-error');
     elErr.hidden = true;
-    return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), { method: 'GET' })
+    return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), {
+      method: 'GET',
+      mode: 'cors',
+      redirect: 'follow'
+    })
       .then(function (r) { return r.text(); })
       .then(function (text) {
         var data = parseGasPayload(text);
