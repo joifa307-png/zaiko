@@ -669,16 +669,50 @@
   }
 
   function normalizeUnitData(unitObj) {
+    function pickAny(obj, keys) {
+      for (var i = 0; i < keys.length; i++) {
+        if (obj && obj[keys[i]] !== undefined && obj[keys[i]] !== null && obj[keys[i]] !== '') return obj[keys[i]];
+      }
+      return null;
+    }
+
+    function guessProductFromObject(row) {
+      var skip = {
+        sender: true, sentAt: true, status: true, unit: true, area: true,
+        送信者: true, 送信日時: true, 状態: true, 消費数: true, 現在庫: true, 補充数: true
+      };
+      for (var k in row) {
+        if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
+        if (skip[k]) continue;
+        var v = row[k];
+        if (typeof v === 'string' && v.trim()) return v.trim();
+      }
+      return null;
+    }
+
     function normalizeItemRow(row) {
-      if (!row || typeof row !== 'object') return null;
-      var product = firstDefined([row.product, row.item, row.name, row.品目, row.productName, row.物品名]);
+      if (!row) return null;
+      if (Array.isArray(row)) {
+        if (!row.length) return null;
+        return {
+          product: row[0] != null ? String(row[0]) : '',
+          consumed: row.length > 1 ? row[1] : 0,
+          stock: row.length > 2 ? row[2] : '',
+          replenish: row.length > 3 ? row[3] : '',
+          status: row.length > 4 ? row[4] : ''
+        };
+      }
+      if (typeof row !== 'object') return null;
+      var product = pickAny(row, [
+        'product', 'item', 'name', '品目', '品名', '物品名', '商品名', 'productName', 'itemName'
+      ]) || guessProductFromObject(row);
       if (!product) return null;
       return {
         product: String(product),
-        consumed: firstDefined([row.consumed, row.use, row.qty, row.消費数, row.used, 0]),
-        stock: firstDefined([row.stock, row.currentStock, row.現在庫, row.inventory, '']),
-        replenish: firstDefined([row.replenish, row.refill, row.補充数, row.restock, '']),
-        status: firstDefined([row.status, row.状態, ''])
+        consumed: pickAny(row, ['consumed', 'use', 'qty', '消費数', '使用数', '使用量', 'used', 'consumption']) || 0,
+        stock: pickAny(row, ['stock', 'currentStock', '現在庫', 'inventory', 'stockQty', '在庫']) || '',
+        replenish: pickAny(row, ['replenish', 'refill', '補充数', 'restock', 'orderQty', '補充']) || '',
+        status: pickAny(row, ['status', '状態']) || ''
       };
     }
 
