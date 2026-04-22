@@ -1085,8 +1085,19 @@
         var raw = localStorage.getItem(k);
         if (!raw) return;
         var j = JSON.parse(raw);
-        var pr = j && j.db && j.db.settings && j.db.settings.supplyProducts;
-        if (Array.isArray(pr) && pr.length) found = pr.map(String);
+        var candidates = [
+          j && j.settings && j.settings.supplyProducts,
+          j && j.db && j.db.settings && j.db.settings.supplyProducts,
+          j && j.db && j.db.supplyProducts,
+          j && j.supplyProducts
+        ];
+        for (var i = 0; i < candidates.length; i++) {
+          var pr = candidates[i];
+          if (Array.isArray(pr) && pr.length) {
+            found = pr.map(String);
+            break;
+          }
+        }
       } catch (e) {}
     });
     if (!found || !found.length) {
