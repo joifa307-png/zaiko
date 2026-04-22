@@ -682,6 +682,7 @@
       };
     }
 
+    unitObj = toObjectMaybe(unitObj) || unitObj;
     if (!unitObj) return { sender: '', sentAt: '', items: [] };
     var rawItems = null;
     if (Array.isArray(unitObj)) {
@@ -696,6 +697,24 @@
         unitObj.一覧,
         unitObj.明細
       ]);
+      if (!Array.isArray(rawItems)) {
+        rawItems = [];
+        for (var k in unitObj) {
+          if (!Object.prototype.hasOwnProperty.call(unitObj, k)) continue;
+          if (k === 'sender' || k === 'sentAt' || k === 'name' || k === 'user' || k === '送信者' || k === '送信日時') continue;
+          var v = unitObj[k];
+          if (v && typeof v === 'object') {
+            var row = {};
+            for (var kk in v) {
+              if (Object.prototype.hasOwnProperty.call(v, kk)) row[kk] = v[kk];
+            }
+            if (row.product == null && row.item == null && row.name == null && row.品目 == null && row.productName == null && row.物品名 == null) {
+              row.product = k;
+            }
+            rawItems.push(row);
+          }
+        }
+      }
     }
     if (!Array.isArray(rawItems)) rawItems = [];
     var items = [];
@@ -808,6 +827,12 @@
           var d = data && data.data;
           if (d && typeof d === 'object') {
             info.textContent += ' / dataキー: ' + (Array.isArray(d) ? 'array(' + d.length + ')' : Object.keys(d).join(', '));
+            var nn = d['西ユニット'];
+            if (nn !== undefined) {
+              var nnObj = toObjectMaybe(nn) || nn;
+              var t = Array.isArray(nnObj) ? 'array(' + nnObj.length + ')' : (nnObj && typeof nnObj === 'object' ? 'object(' + Object.keys(nnObj).slice(0, 5).join('/') + ')' : typeof nnObj);
+              info.textContent += ' / 西ユニット型: ' + t;
+            }
           }
         }
       })
