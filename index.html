@@ -702,6 +702,30 @@
         minami: { sender: '', sentAt: '', items: [] }
       };
     }
+    if (Array.isArray(root)) {
+      var nRows = [];
+      var mRows = [];
+      for (var i = 0; i < root.length; i++) {
+        var row = root[i];
+        if (!row || typeof row !== 'object') continue;
+        var unit = String(firstDefined([row.unit, row.area, row.section, row.branch, row.location]) || '').toLowerCase();
+        var unitJp = String(firstDefined([row.unit, row.area, row.section, row.branch, row.location]) || '');
+        var target = null;
+        if (unit === 'nishi' || unit === 'west' || unitJp === '西') target = nRows;
+        if (unit === 'minami' || unit === 'south' || unitJp === '南') target = mRows;
+        if (!target) continue;
+        target.push({
+          product: firstDefined([row.product, row.item, row.name, row.品目]) || '',
+          consumed: firstDefined([row.consumed, row.use, row.qty, row.消費数, 0]),
+          stock: firstDefined([row.stock, row.currentStock, row.現在庫, '']),
+          replenish: firstDefined([row.replenish, row.refill, row.補充数, ''])
+        });
+      }
+      return {
+        nishi: { sender: '', sentAt: '', items: nRows },
+        minami: { sender: '', sentAt: '', items: mRows }
+      };
+    }
     var nishiRaw = firstDefined([
       root.nishi, root.west, root.西, root.unitNishi, root.n
     ]);
@@ -751,6 +775,10 @@
         if (info && hqCache.nishi.items.length === 0 && hqCache.minami.items.length === 0) {
           var k = (data && typeof data === 'object') ? Object.keys(data).join(', ') : typeof data;
           info.textContent += ' / 受信キー: ' + k;
+          var d = data && data.data;
+          if (d && typeof d === 'object') {
+            info.textContent += ' / dataキー: ' + (Array.isArray(d) ? 'array(' + d.length + ')' : Object.keys(d).join(', '));
+          }
         }
       })
       .catch(function (e) {
