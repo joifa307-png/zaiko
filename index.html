@@ -8,6 +8,8 @@
     :root {
       --header-bg: #1e3a5f;
       --header-fg: #f5f7fa;
+      --header-h: 56px;
+      --tabs-h: 46px;
       --accent: #2563b8;
       --border: #cbd5e1;
       --bg: #f1f5f9;
@@ -30,8 +32,11 @@
       background: var(--header-bg);
       color: var(--header-fg);
       padding: 0.75rem 1rem;
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
+      min-height: var(--header-h);
       z-index: 100;
       box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
@@ -50,6 +55,12 @@
       background: #0f172a;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      right: 0;
+      min-height: var(--tabs-h);
+      z-index: 99;
     }
     .tab-btn {
       flex: 1;
@@ -73,6 +84,7 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 0.75rem;
+      padding-top: calc(var(--header-h) + var(--tabs-h) + 0.75rem);
       padding-bottom: 2.5rem;
     }
     .panel { display: none; }
