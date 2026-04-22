@@ -642,6 +642,57 @@
     }
   }
 
+  function firstDefined(paths) {
+    for (var i = 0; i < paths.length; i++) {
+      if (paths[i] !== undefined && paths[i] !== null) return paths[i];
+    }
+    return null;
+  }
+
+  function normalizeUnitData(unitObj) {
+    if (!unitObj || typeof unitObj !== 'object') return { sender: '', sentAt: '', items: [] };
+    var items = firstDefined([
+      unitObj.items,
+      unitObj.list,
+      unitObj.rows,
+      unitObj.data
+    ]);
+    if (!Array.isArray(items)) items = [];
+    return {
+      sender: firstDefined([unitObj.sender, unitObj.name, unitObj.user, unitObj.lastSender]) || '',
+      sentAt: firstDefined([unitObj.sentAt, unitObj.datetime, unitObj.updatedAt, unitObj.lastSentAt]) || '',
+      items: items
+    };
+  }
+
+  function resolveHqData(data) {
+    var root = firstDefined([
+      data,
+      data && data.body,
+      data && data.honbu,
+      data && data.data,
+      data && data.result,
+      data && data.payload,
+      data && data.response
+    ]);
+    if (!root || typeof root !== 'object') {
+      return {
+        nishi: { sender: '', sentAt: '', items: [] },
+        minami: { sender: '', sentAt: '', items: [] }
+      };
+    }
+    var nishiRaw = firstDefined([
+      root.nishi, root.west, root.西, root.unitNishi, root.n
+    ]);
+    var minamiRaw = firstDefined([
+      root.minami, root.south, root.南, root.unitMinami, root.m
+    ]);
+    return {
+      nishi: normalizeUnitData(nishiRaw),
+      minami: normalizeUnitData(minamiRaw)
+    };
+  }
+
   function ensureRefreshButtonEnabled() {
     var btn = document.getElementById('btn-refresh');
     if (!btn) return;
@@ -666,23 +717,16 @@
       .then(function (text) {
         var data = parseGasPayload(text);
         hqCache.raw = data;
-        if (data && typeof data === 'object' && (data.nishi || data.minami)) {
-          hqCache.nishi = data.nishi;
-          hqCache.minami = data.minami;
-        } else if (data && (data.honbu || data.body)) {
-          var inner = data.body || data.honbu;
-          hqCache.nishi = inner && inner.nishi;
-          hqCache.minami = inner && inner.minami;
-        } else {
-          hqCache.nishi = { sender: '', sentAt: '', items: [] };
-          hqCache.minami = { sender: '', sentAt: '', items: [] };
-        }
+        var resolved = resolveHqData(data);
+        hqCache.nishi = resolved.nishi;
+        hqCache.minami = resolved.minami;
         if (!hqCache.nishi) hqCache.nishi = { sender: '', sentAt: '', items: [] };
         if (!hqCache.minami) hqCache.minami = { sender: '', sentAt: '', items: [] };
         if (!Array.isArray(hqCache.nishi.items)) hqCache.nishi.items = [];
         if (!Array.isArray(hqCache.minami.items)) hqCache.minami.items = [];
         renderHq();
-        if (info) info.textContent = '取得完了: ' + new Date().toLocaleString('ja-JP');
+        if (info) info.textContent = '取得完了: ' + new Date().toLocaleString('ja-JP') +
+          '（西 ' + hqCache.nishi.items.length + '件 / 南 ' + hqCache.minami.items.length + '件）';
       })
       .catch(function (e) {
         elErr.textContent = '取得に失敗しました: ' + (e && e.message ? e.message : e);
