@@ -192,6 +192,22 @@
       font-weight: 700;
       color: #1e3a5f;
     }
+    #honbu-table th,
+    #honbu-table td {
+      text-align: center;
+      vertical-align: middle;
+    }
+    #honbu-table .num {
+      text-align: center !important;
+    }
+    #honbu-table th:nth-child(6),
+    #honbu-table td:nth-child(6) {
+      border-left: 3px solid #94a3b8;
+    }
+    #honbu-table th:nth-child(5),
+    #honbu-table td:nth-child(5) {
+      border-right: 2px solid #cbd5e1;
+    }
     .read-row td { background: #f8fafc !important; }
     .settings-list {
       list-style: none;
@@ -227,7 +243,7 @@
     }
     @media (min-width: 768px) {
       .app-header h1 { font-size: 1.25rem; }
-      table { font-size: 0.9rem; }
+      table { font-size: 1rem; }
     }
   </style>
 </head>
@@ -253,7 +269,7 @@
         <p class="meta-line" id="honbu-info"></p>
         <p class="error-msg" id="honbu-error" hidden></p>
         <div class="table-wrap">
-          <table>
+          <table id="honbu-table">
             <thead>
               <tr>
                 <th>品目</th>
@@ -898,7 +914,18 @@
   function renderHq() {
     var n = hqCache.nishi || {};
     var m = hqCache.minami || {};
-    var sn = n.sender || '—', san = m.sender || '—';
+    function senderFromItems(items) {
+      if (!Array.isArray(items)) return '';
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (!it || typeof it !== 'object') continue;
+        var s = firstDefined([it.sender, it.name, it.user, it.送信者, it.担当者]);
+        if (s) return String(s);
+      }
+      return '';
+    }
+    var sn = n.sender || senderFromItems(n.items) || '—';
+    var san = m.sender || senderFromItems(m.items) || '—';
     var tn = n.sentAt || '—', tam = m.sentAt || '—';
     document.getElementById('honbu-hq-meta').textContent = '最終送信 西: ' + sn + ' ' + tn + ' ｜ 南: ' + san + ' ' + tam;
 
@@ -913,23 +940,18 @@
     addKeys(mn);
     addKeys(mm);
     var names = Object.keys(all);
-    names.sort();
     var supplyProducts = Array.isArray(db.settings.supplyProducts) ? db.settings.supplyProducts : [];
     var dailyProducts = Array.isArray(db.settings.dailyProducts) ? db.settings.dailyProducts : [];
-    var supplySet = {};
-    var dailySet = {};
-    for (var si = 0; si < supplyProducts.length; si++) supplySet[supplyProducts[si]] = true;
-    for (var di = 0; di < dailyProducts.length; di++) dailySet[dailyProducts[di]] = true;
+    var allSet = {};
+    for (var ai = 0; ai < names.length; ai++) allSet[names[ai]] = true;
     var supplyNames = [];
     var dailyNames = [];
-    var otherNames = [];
-    for (var ni = 0; ni < names.length; ni++) {
-      var n0 = names[ni];
-      if (supplySet[n0]) supplyNames.push(n0);
-      else if (dailySet[n0]) dailyNames.push(n0);
-      else otherNames.push(n0);
+    for (var si = 0; si < supplyProducts.length; si++) {
+      if (allSet[supplyProducts[si]]) supplyNames.push(supplyProducts[si]);
     }
-    var orderedNames = supplyNames.concat(dailyNames).concat(otherNames);
+    for (var di = 0; di < dailyProducts.length; di++) {
+      if (allSet[dailyProducts[di]]) dailyNames.push(dailyProducts[di]);
+    }
 
     var tbody = document.getElementById('honbu-tbody');
     tbody.innerHTML = '';
@@ -980,17 +1002,13 @@
       appendSectionRow('日用品');
       for (var j = 0; j < dailyNames.length; j++) appendDataRow(dailyNames[j]);
     }
-    if (otherNames.length) {
-      appendSectionRow('その他');
-      for (var k2 = 0; k2 < otherNames.length; k2++) appendDataRow(otherNames[k2]);
-    }
-    if (!names.length) {
+    if (!supplyNames.length && !dailyNames.length) {
       var tr0 = document.createElement('tr');
-      tr0.innerHTML = '<td colspan="9" style="text-align:center;color:#64748b">データがありません。「最新データを取得」を押してください。</td>';
+      tr0.innerHTML = '<td colspan="9" style="text-align:center;color:#64748b">設定の品目リストに一致するデータがありません。</td>';
       tbody.appendChild(tr0);
     }
     var tfoot = document.getElementById('honbu-tfoot');
-    tfoot.innerHTML = '<tr><th colspan="1">西・南 消費合計</th><th class="num">' + (names.length ? sumN : '—') + '</th><th colspan="2"></th><th></th><th class="num">' + (names.length ? sumM : '—') + '</th><th colspan="3"></th></tr>';
+    tfoot.innerHTML = '<tr><th colspan="1">西・南 消費合計</th><th class="num">' + ((supplyNames.length || dailyNames.length) ? sumN : '—') + '</th><th colspan="2"></th><th></th><th class="num">' + ((supplyNames.length || dailyNames.length) ? sumM : '—') + '</th><th colspan="3"></th></tr>';
     document.getElementById('honbu-totals').textContent = '西の消費合計: ' + sumN + ' ｜ 南の消費合計: ' + sumM;
   }
 
