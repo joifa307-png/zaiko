@@ -687,13 +687,14 @@
   function resolveHqData(data) {
     var d0 = toObjectMaybe(data);
     var root = firstDefined([
-      d0,
       toObjectMaybe(d0 && d0.body),
       toObjectMaybe(d0 && d0.honbu),
       toObjectMaybe(d0 && d0.data),
       toObjectMaybe(d0 && d0.result),
       toObjectMaybe(d0 && d0.payload),
       toObjectMaybe(d0 && d0.response)
+      ,
+      d0
     ]);
     if (!root || typeof root !== 'object') {
       return {
