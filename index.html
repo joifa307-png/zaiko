@@ -669,17 +669,43 @@
   }
 
   function normalizeUnitData(unitObj) {
-    if (!unitObj || typeof unitObj !== 'object') return { sender: '', sentAt: '', items: [] };
-    var items = firstDefined([
-      unitObj.items,
-      unitObj.list,
-      unitObj.rows,
-      unitObj.data
-    ]);
-    if (!Array.isArray(items)) items = [];
+    function normalizeItemRow(row) {
+      if (!row || typeof row !== 'object') return null;
+      var product = firstDefined([row.product, row.item, row.name, row.品目, row.productName, row.物品名]);
+      if (!product) return null;
+      return {
+        product: String(product),
+        consumed: firstDefined([row.consumed, row.use, row.qty, row.消費数, row.used, 0]),
+        stock: firstDefined([row.stock, row.currentStock, row.現在庫, row.inventory, '']),
+        replenish: firstDefined([row.replenish, row.refill, row.補充数, row.restock, '']),
+        status: firstDefined([row.status, row.状態, ''])
+      };
+    }
+
+    if (!unitObj) return { sender: '', sentAt: '', items: [] };
+    var rawItems = null;
+    if (Array.isArray(unitObj)) {
+      rawItems = unitObj;
+    } else if (typeof unitObj === 'object') {
+      rawItems = firstDefined([
+        unitObj.items,
+        unitObj.list,
+        unitObj.rows,
+        unitObj.data,
+        unitObj.details,
+        unitObj.一覧,
+        unitObj.明細
+      ]);
+    }
+    if (!Array.isArray(rawItems)) rawItems = [];
+    var items = [];
+    for (var i = 0; i < rawItems.length; i++) {
+      var n = normalizeItemRow(rawItems[i]);
+      if (n) items.push(n);
+    }
     return {
-      sender: firstDefined([unitObj.sender, unitObj.name, unitObj.user, unitObj.lastSender]) || '',
-      sentAt: firstDefined([unitObj.sentAt, unitObj.datetime, unitObj.updatedAt, unitObj.lastSentAt]) || '',
+      sender: firstDefined([unitObj && unitObj.sender, unitObj && unitObj.name, unitObj && unitObj.user, unitObj && unitObj.lastSender, unitObj && unitObj.送信者]) || '',
+      sentAt: firstDefined([unitObj && unitObj.sentAt, unitObj && unitObj.datetime, unitObj && unitObj.updatedAt, unitObj && unitObj.lastSentAt, unitObj && unitObj.送信日時]) || '',
       items: items
     };
   }
@@ -727,10 +753,14 @@
       };
     }
     var nishiRaw = firstDefined([
-      root.nishi, root.west, root.西, root.unitNishi, root.n
+      root.nishi, root.west, root.西, root.unitNishi, root.n,
+      root['西ユニット'], root['西_ユニット'], root.nishiUnit, root.unit_nishi,
+      root['本部'] && (root['本部'].nishi || root['本部'].west || root['本部']['西ユニット'])
     ]);
     var minamiRaw = firstDefined([
-      root.minami, root.south, root.南, root.unitMinami, root.m
+      root.minami, root.south, root.南, root.unitMinami, root.m,
+      root['南ユニット'], root['南_ユニット'], root.minamiUnit, root.unit_minami,
+      root['本部'] && (root['本部'].minami || root['本部'].south || root['本部']['南ユニット'])
     ]);
     return {
       nishi: normalizeUnitData(nishiRaw),
