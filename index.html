@@ -628,9 +628,17 @@
     }
   }
 
+  function ensureRefreshButtonEnabled() {
+    var btn = document.getElementById('btn-refresh');
+    if (!btn) return;
+    if (btn.disabled) btn.disabled = false;
+    if (btn.style && btn.style.pointerEvents === 'none') btn.style.pointerEvents = 'auto';
+  }
+
   function fetchHq() {
     var elErr = document.getElementById('honbu-error');
     elErr.hidden = true;
+    ensureRefreshButtonEnabled();
     return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), {
       method: 'GET',
       mode: 'cors',
@@ -660,6 +668,9 @@
       .catch(function (e) {
         elErr.textContent = '取得に失敗しました: ' + (e && e.message ? e.message : e);
         elErr.hidden = false;
+      })
+      .finally(function () {
+        ensureRefreshButtonEnabled();
       });
   }
 
@@ -1137,7 +1148,11 @@
   document.querySelectorAll('.tab-btn').forEach(function (b) {
     b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); });
   });
-  document.getElementById('btn-refresh').addEventListener('click', function () { fetchHq(); });
+  ensureRefreshButtonEnabled();
+  document.getElementById('btn-refresh').addEventListener('click', function () {
+    ensureRefreshButtonEnabled();
+    fetchHq();
+  });
 
   // 初期
   function mergeLegacyUnit() {
