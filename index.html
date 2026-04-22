@@ -636,9 +636,28 @@
     if (!text) return null;
     var t = text.trim();
     try {
-      return JSON.parse(t);
+      var parsed = JSON.parse(t);
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch (e1) {}
+      }
+      return parsed;
     } catch (e) {
       return { _text: t };
+    }
+  }
+
+  function toObjectMaybe(v) {
+    if (!v) return null;
+    if (typeof v === 'object') return v;
+    if (typeof v !== 'string') return null;
+    try {
+      var p = JSON.parse(v);
+      if (typeof p === 'string') {
+        try { p = JSON.parse(p); } catch (e2) {}
+      }
+      return (p && typeof p === 'object') ? p : null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -666,14 +685,15 @@
   }
 
   function resolveHqData(data) {
+    var d0 = toObjectMaybe(data);
     var root = firstDefined([
-      data,
-      data && data.body,
-      data && data.honbu,
-      data && data.data,
-      data && data.result,
-      data && data.payload,
-      data && data.response
+      d0,
+      toObjectMaybe(d0 && d0.body),
+      toObjectMaybe(d0 && d0.honbu),
+      toObjectMaybe(d0 && d0.data),
+      toObjectMaybe(d0 && d0.result),
+      toObjectMaybe(d0 && d0.payload),
+      toObjectMaybe(d0 && d0.response)
     ]);
     if (!root || typeof root !== 'object') {
       return {
@@ -727,6 +747,10 @@
         renderHq();
         if (info) info.textContent = '取得完了: ' + new Date().toLocaleString('ja-JP') +
           '（西 ' + hqCache.nishi.items.length + '件 / 南 ' + hqCache.minami.items.length + '件）';
+        if (info && hqCache.nishi.items.length === 0 && hqCache.minami.items.length === 0) {
+          var k = (data && typeof data === 'object') ? Object.keys(data).join(', ') : typeof data;
+          info.textContent += ' / 受信キー: ' + k;
+        }
       })
       .catch(function (e) {
         elErr.textContent = '取得に失敗しました: ' + (e && e.message ? e.message : e);
