@@ -8,8 +8,8 @@
     :root {
       --header-bg: #1e3a5f;
       --header-fg: #f5f7fa;
-      --header-h: 56px;
-      --tabs-h: 46px;
+      --header-h: 72px;
+      --tabs-h: 52px;
       --accent: #2563b8;
       --border: #cbd5e1;
       --bg: #f1f5f9;
@@ -31,7 +31,7 @@
     .app-header {
       background: var(--header-bg);
       color: var(--header-fg);
-      padding: 0.75rem 1rem;
+      padding: 0.9rem 1rem 0.8rem;
       position: fixed;
       top: 0;
       left: 0;
@@ -65,12 +65,13 @@
     .tab-btn {
       flex: 1;
       min-width: 4rem;
-      padding: 0.65rem 0.5rem;
+      padding: 0.85rem 0.5rem 0.75rem;
       border: none;
       background: transparent;
       color: #94a3b8;
       font-size: 0.9rem;
       font-weight: 500;
+      line-height: 1.2;
       cursor: pointer;
       border-bottom: 3px solid transparent;
     }
@@ -244,6 +245,7 @@
           <button type="button" class="btn" id="btn-refresh">最新データを取得</button>
         </div>
         <p class="meta-line" id="honbu-hq-meta"></p>
+        <p class="meta-line" id="honbu-info"></p>
         <p class="error-msg" id="honbu-error" hidden></p>
         <div class="table-wrap">
           <table>
@@ -649,7 +651,11 @@
 
   function fetchHq() {
     var elErr = document.getElementById('honbu-error');
+    var info = document.getElementById('honbu-info');
+    var btn = document.getElementById('btn-refresh');
     elErr.hidden = true;
+    if (info) info.textContent = '最新データを取得中...';
+    if (btn) btn.textContent = '取得中...';
     ensureRefreshButtonEnabled();
     return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), {
       method: 'GET',
@@ -676,12 +682,15 @@
         if (!Array.isArray(hqCache.nishi.items)) hqCache.nishi.items = [];
         if (!Array.isArray(hqCache.minami.items)) hqCache.minami.items = [];
         renderHq();
+        if (info) info.textContent = '取得完了: ' + new Date().toLocaleString('ja-JP');
       })
       .catch(function (e) {
         elErr.textContent = '取得に失敗しました: ' + (e && e.message ? e.message : e);
         elErr.hidden = false;
+        if (info) info.textContent = '取得失敗: 通信またはCORS設定を確認してください';
       })
       .finally(function () {
+        if (btn) btn.textContent = '最新データを取得';
         ensureRefreshButtonEnabled();
       });
   }
