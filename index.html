@@ -954,6 +954,7 @@
   }
 
   document.getElementById('panel-honbu').addEventListener('click', function (e) {
+    console.log('確認ボタン押下');
     var t = e.target;
     if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
@@ -965,6 +966,7 @@
     }
   });
   document.getElementById('panel-nishi').addEventListener('click', function (e) {
+    console.log('確認ボタン押下');
     var t = e.target;
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
@@ -992,6 +994,7 @@
   document.querySelectorAll('.tab-btn').forEach(function (b) { b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); }); });
 
   document.getElementById('btn-sync-get').addEventListener('click', function () {
+    console.log('取得ボタン押下');
     var el = document.getElementById('honbu-err');
     el.hidden = true;
     getGAS()
