@@ -635,16 +635,25 @@
     gasLog('POST 送信', payload);
     return fetch(gasUrl, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      redirect: 'follow',
+      mode: 'cors'
     })
-      .then(function (r) { return r.text().then(function (text) { return { ok: r.ok, status: r.status, text: text }; }); })
+      .then(function (r) {
+        return r.text().then(function (text) { return { ok: r.ok, status: r.status, text: text }; });
+      })
       .then(function (x) {
+        console.log('POST response:', x.text);
         var preview = x.text;
         if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
         gasLog('POST 応答 ' + x.status, preview, x);
         if (!x.ok) throw new Error('POST HTTP ' + x.status);
         return x.text;
+      })
+      .catch(function (err) {
+        console.error('POST error:', err);
+        throw err;
       });
   }
 
