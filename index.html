@@ -255,11 +255,50 @@
 (function () {
   'use strict';
 
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxrvIwntBwCFnVmH5pGwVMMZL1Petm3CeiOT3SdB3cdGNNq6dZRpJRHLZnQEYpom2ApqQ/exec';
-  var TOKEN = 'KAIGO_ZAIKO_2025';
+  var DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxrvIwntBwCFnVmH5pGwVMMZL1Petm3CeiOT3SdB3cdGNNq6dZRpJRHLZnQEYpom2ApqQ/exec';
+  var DEFAULT_TOKEN = 'KAIGO_ZAIKO_2025';
+  var LS_GAS_URL = 'zaiko_gas_url';
+  var LS_GAS_TOKEN = 'zaiko_gas_token';
+  var gasUrl = DEFAULT_GAS_URL;
+  var token = DEFAULT_TOKEN;
   var LS_KEY = 'zaiko_db';
   var LS_KAIGO_NISHI = 'kaigo_nishi';
   var LS_KAIGO_MINAMI = 'kaigo_minami';
+  var GAS_DEBUG = true;
+  function loadGasEndpoints() {
+    try {
+      var u = localStorage.getItem(LS_GAS_URL);
+      var t = localStorage.getItem(LS_GAS_TOKEN);
+      gasUrl = (u != null && String(u).trim() !== '') ? String(u).trim() : DEFAULT_GAS_URL;
+      token = (t != null && String(t).trim() !== '') ? String(t).trim() : DEFAULT_TOKEN;
+    } catch (e) {
+      gasUrl = DEFAULT_GAS_URL;
+      token = DEFAULT_TOKEN;
+    }
+  }
+  function saveGasEndpoints() {
+    var uEl = document.getElementById('s-gas-url');
+    var tEl = document.getElementById('s-gas-token');
+    var u = uEl ? String(uEl.value || '').trim() : '';
+    var tok = tEl ? String(tEl.value || '').trim() : '';
+    gasUrl = u !== '' ? u : DEFAULT_GAS_URL;
+    token = tok !== '' ? tok : DEFAULT_TOKEN;
+    try {
+      localStorage.setItem(LS_GAS_URL, gasUrl);
+      localStorage.setItem(LS_GAS_TOKEN, token);
+    } catch (e) {}
+    if (uEl) uEl.value = gasUrl;
+    if (tEl) tEl.value = token;
+  }
+  loadGasEndpoints();
+  function gasLog(label, a, b) {
+    if (!GAS_DEBUG) return;
+    if (b !== undefined) {
+      console.log('[GAS ZAIKO]', label, a, b);
+    } else {
+      console.log('[GAS ZAIKO]', label, a);
+    }
+  }
 
   var DEFAULT_DAILY = [
     'ペーパータオル', 'トイレットペーパー', '箱なしティッシュ',
@@ -520,7 +559,7 @@
 
   function payloadForGAS() {
     return {
-      token: TOKEN,
+      token: token,
       sender: getSender() || '未記入',
       sentAt: nowStamp(),
       supply: db.supply,
@@ -543,14 +582,10 @@
       db.settings = d.settings;
     }
     if (d.supply && typeof d.supply === 'object') {
-      for (var k in d.supply) {
-        if (Object.prototype.hasOwnProperty.call(d.supply, k)) db.supply[k] = d.supply[k];
-      }
+      db.supply = d.supply;
     }
     if (d.daily && typeof d.daily === 'object') {
-      for (var j in d.daily) {
-        if (Object.prototype.hasOwnProperty.call(d.daily, j)) db.daily[j] = d.daily[j];
-      }
+      db.daily = d.daily;
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
@@ -566,19 +601,45 @@
   }
 
   function postGAS() {
-    return fetch(GAS_URL, {
+    var payload = payloadForGAS();
+    gasLog('POST 送信', payload);
+    return fetch(gasUrl, {
       method: 'POST',
-      body: JSON.stringify(payloadForGAS()),
+      body: JSON.stringify(payload),
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-    });
+    })
+      .then(function (r) { return r.text().then(function (text) { return { ok: r.ok, status: r.status, text: text }; }); })
+      .then(function (x) {
+        var preview = x.text;
+        if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
+        gasLog('POST 応答 ' + x.status, preview, x);
+        if (!x.ok) throw new Error('POST HTTP ' + x.status);
+        return x.text;
+      });
   }
 
   function getGAS() {
-    return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), {
+    return fetch(gasUrl + '?token=' + encodeURIComponent(token) + '&ts=' + Date.now(), {
       method: 'GET',
       mode: 'cors',
       redirect: 'follow'
     });
+  }
+
+  function processGetResponse(t, fromLabel) {
+    var preview = t;
+    if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
+    gasLog((fromLabel || 'GET 受信') + ' raw', preview, { len: t ? t.length : 0 });
+    var o = parseGas(t);
+    gasLog((fromLabel || 'GET 受信') + ' parseGas', o);
+    var body = resolveGASBody(o);
+    gasLog((fromLabel || 'GET 受信') + ' resolveGASBody', body);
+    mergeFromServer(body);
+    if (o && o.lastSynced) db.lastSynced = o.lastSynced;
+    if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
+    if (body && body.lastSynced) db.lastSynced = body.lastSynced;
+    if (body && body.lastSyncedBy) db.lastSyncedBy = body.lastSyncedBy;
+    gasLog('受信反映後 local db', { settings: db.settings, supply: db.supply, daily: db.daily, lastSynced: db.lastSynced, lastSyncedBy: db.lastSyncedBy });
   }
 
   function renderStamp() {
@@ -896,13 +957,7 @@
     getGAS()
       .then(function (r) { return r.text(); })
       .then(function (t) {
-        var o = parseGas(t);
-        var body = resolveGASBody(o);
-        mergeFromServer(body);
-        if (o && o.lastSynced) db.lastSynced = o.lastSynced;
-        if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
-        if (body && body.lastSynced) db.lastSynced = body.lastSynced;
-        if (body && body.lastSyncedBy) db.lastSyncedBy = body.lastSyncedBy;
+        processGetResponse(t, '手動GET');
         saveDb();
         renderStamp();
         renderHonbu();
@@ -940,7 +995,13 @@
     html += '<h2>西 パット（初期・しきい値）</h2><div class="table-wrap" id="tb-ni"></div>';
     html += '<h2>倉庫 パット</h2><div class="table-wrap" id="tb-sp"></div>';
     html += '<h2>倉庫 日用品</h2><div class="table-wrap" id="tb-sd"></div>';
-    html += '<h2>GAS</h2><p class="meta-line">' + escapeText(GAS_URL) + '</p><p class="meta-line">' + escapeText(TOKEN) + '</p>';
+    html += '<h2>GAS 連携</h2>' +
+      '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
+      '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
+      '<p><label for="s-gas-token">トークン</label><br />' +
+      '<input type="text" id="s-gas-token" autocomplete="off" style="width:100%;max-width:28rem" value="' + escapeAttr(token) + '" /></p>' +
+      '<p><button type="button" class="btn" id="s-gas-save">保存</button> <span id="s-gas-msg" class="ok-msg"></span></p>' +
+      '<p class="meta-line">未入力で保存すると、上記の初期値（フォールバック）が使われます。</p>';
     root.innerHTML = html;
     (function () {
       function fillSt(tableId, arr, nskey) {
@@ -1010,6 +1071,15 @@
     }
     var im = document.getElementById('imp2');
     if (im) im.onclick = doImport;
+    var gasSave = document.getElementById('s-gas-save');
+    if (gasSave) {
+      gasSave.onclick = function () {
+        saveGasEndpoints();
+        var msg = document.getElementById('s-gas-msg');
+        if (msg) msg.textContent = 'GAS URL・トークンを保存しました。';
+        setTimeout(function () { if (msg) msg.textContent = ''; }, 3500);
+      };
+    }
     var lp = document.getElementById('l-p');
     function listRowClick(e) {
         var t = e.target;
@@ -1086,13 +1156,7 @@
     getGAS()
       .then(function (r) { return r.text(); })
       .then(function (t) {
-        var o = parseGas(t);
-        var body = resolveGASBody(o);
-        mergeFromServer(body);
-        if (o && o.lastSynced) db.lastSynced = o.lastSynced;
-        if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
-        if (body && body.lastSynced) db.lastSynced = body.lastSynced;
-        if (body && body.lastSyncedBy) db.lastSyncedBy = body.lastSyncedBy;
+        processGetResponse(t, '起動時GET');
         saveDb();
         renderStamp();
         renderHonbu();
