@@ -594,6 +594,15 @@
   function mergeFromServer(d) {
     if (!d || typeof d !== 'object') return;
     if (d.settings && typeof d.settings === 'object' && Object.keys(d.settings).length > 0) {
+      if (!db.settings || typeof db.settings !== 'object') db.settings = {};
+      if (!Array.isArray(db.settings.supplyProducts)) db.settings.supplyProducts = [];
+      if (!Array.isArray(db.settings.dailyProducts)) db.settings.dailyProducts = [];
+      if (!Array.isArray(d.settings.supplyProducts) || d.settings.supplyProducts.length === 0) {
+        d.settings.supplyProducts = db.settings.supplyProducts;
+      }
+      if (!Array.isArray(d.settings.dailyProducts) || d.settings.dailyProducts.length === 0) {
+        d.settings.dailyProducts = db.settings.dailyProducts;
+      }
       db.settings = d.settings;
     }
     if (d.supply && typeof d.supply === 'object') {
