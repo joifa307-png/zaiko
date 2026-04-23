@@ -40,15 +40,8 @@
       z-index: 100;
       box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
-    .app-header h1 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin: 0 0 0.15rem 0;
-    }
-    .app-header .sub {
-      font-size: 0.8rem;
-      opacity: 0.9;
-    }
+    .app-header h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.15rem 0; }
+    .app-header .sub { font-size: 0.8rem; opacity: 0.9; }
     .tabs {
       display: flex;
       gap: 0;
@@ -64,7 +57,7 @@
     }
     .tab-btn {
       flex: 1;
-      min-width: 4rem;
+      min-width: 4.5rem;
       padding: 0.85rem 0.5rem 0.75rem;
       border: none;
       background: transparent;
@@ -76,11 +69,7 @@
       border-bottom: 3px solid transparent;
     }
     .tab-btn:hover { color: #e2e8f0; }
-    .tab-btn.active {
-      color: #fff;
-      border-bottom-color: #38bdf8;
-      background: rgba(255,255,255,.06);
-    }
+    .tab-btn.active { color: #fff; border-bottom-color: #38bdf8; background: rgba(255,255,255,.06); }
     .wrap {
       max-width: 1200px;
       margin: 0 auto;
@@ -97,154 +86,54 @@
       padding: 0.9rem 1rem;
       margin-bottom: 0.75rem;
     }
-    .row-flex {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem 0.75rem;
-      margin-bottom: 0.5rem;
-    }
+    h2, h3 { font-size: 1.1rem; margin: 0 0 0.5rem; color: #0f172a; }
+    h3 { font-size: 1rem; margin-top: 0.75rem; }
+    .row-flex { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
     label { font-size: 0.95rem; color: var(--muted); }
-    input[type="text"],
-    input[type="number"],
-    input:not([type]) {
+    input, select, textarea {
       padding: 0.45rem 0.5rem;
       border: 1px solid var(--border);
       border-radius: 4px;
       font-size: 1.05rem;
       max-width: 100%;
     }
-    input:disabled {
-      background: #e2e8f0;
-      color: #475569;
-    }
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.25rem;
-      padding: 0.5rem 0.9rem;
-      font-size: 1rem;
-      font-weight: 500;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: var(--accent);
-      color: #fff;
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem;
+      padding: 0.5rem 0.9rem; font-size: 1rem; font-weight: 500;
+      border: none; border-radius: 4px; cursor: pointer; background: var(--accent); color: #fff;
     }
-    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
     .btn-secondary { background: #475569; }
     .btn-ghost { background: #e2e8f0; color: #0f172a; }
-    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 0.5rem; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 1rem;
-    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0.5rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 1rem; }
     th, td {
       border: 1px solid var(--border);
-      padding: 0.52rem 0.55rem;
-      text-align: left;
-      vertical-align: middle;
+      padding: 0.52rem 0.45rem;
+      text-align: center; vertical-align: middle;
     }
     th { background: #e2e8f0; font-weight: 600; white-space: nowrap; }
     tr:nth-child(even) td { background: #fafbfc; }
-    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .num { text-align: center; font-variant-numeric: tabular-nums; }
+    .col-west { background: #f0f7ff; }
+    .col-south { background: #fff8f0; }
+    .col-soko { background: #f0fdf4; }
+    th.col-divide { box-shadow: inset 3px 0 0 #94a3b8; }
     .badge {
-      display: inline-block;
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      white-space: nowrap;
+      display: inline-block; padding: 0.15rem 0.4rem; border-radius: 4px;
+      font-size: 0.85rem; font-weight: 600; white-space: nowrap;
     }
     .badge-danger { background: #fecaca; color: var(--danger); }
     .badge-warn { background: #fef08a; color: var(--warn); }
     .badge-ok { background: #e2e8f0; color: var(--ok); }
-    .badge-auto { background: #dbeafe; color: #1e40af; font-size: 0.7rem; }
-    h2, h3 {
-      font-size: 1.1rem;
-      margin: 0 0 0.5rem 0;
-      color: #0f172a;
-    }
-    h3 { font-size: 1rem; margin-top: 0.75rem; }
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.4rem;
-    }
-    .week-nav {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    .week-nav button {
-      padding: 0.25rem 0.5rem;
-      font-size: 1rem;
-      line-height: 1;
-    }
+    .badge-ship { background: #dbeafe; color: #1d4ed8; }
     .meta-line { font-size: 0.95rem; color: var(--muted); margin: 0.25rem 0; }
-    .error-msg { color: var(--danger); font-size: 0.95rem; margin: 0.25rem 0; }
-    .ok-msg { color: #166534; font-size: 0.95rem; margin: 0.25rem 0; }
-    .hq-section-row td {
-      background: #eaf2ff !important;
-      font-weight: 700;
-      color: #1e3a5f;
-    }
-    #honbu-table th,
-    #honbu-table td {
-      text-align: center;
-      vertical-align: middle;
-    }
-    #honbu-table .num {
-      text-align: center !important;
-    }
-    #honbu-table th:nth-child(6),
-    #honbu-table td:nth-child(6) {
-      border-left: 3px solid #94a3b8;
-    }
-    #honbu-table th:nth-child(5),
-    #honbu-table td:nth-child(5) {
-      border-right: 2px solid #cbd5e1;
-    }
-    .read-row td { background: #f8fafc !important; }
-    .settings-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-    .settings-list li {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.35rem 0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .settings-list .name { flex: 1; min-width: 0; }
-    .settings-list .mini {
-      display: flex;
-      gap: 0.2rem;
-    }
-    .settings-list .mini button {
-      padding: 0.2rem 0.45rem;
-      font-size: 0.8rem;
-    }
-    .add-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
-    .add-row input { flex: 1; min-width: 10rem; }
-    .th-grid {
-      display: grid;
-      grid-template-columns: 1fr 4rem 4rem;
-      gap: 0.4rem;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #334155;
-      margin-bottom: 0.2rem;
-    }
-    @media (min-width: 768px) {
-      .app-header h1 { font-size: 1.25rem; }
-      table { font-size: 1rem; }
-    }
+    .error-msg { color: var(--danger); font-size: 0.95rem; }
+    .ok-msg { color: #166534; font-size: 0.95rem; }
+    .section-title { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; }
+    .slist { list-style: none; margin: 0.25rem 0 0.75rem; padding: 0; }
+    .slist li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0.2rem 0; }
+    .slist .nm { flex: 1; min-width: 6rem; }
   </style>
 </head>
 <body>
@@ -255,195 +144,110 @@
   <nav class="tabs" role="tablist">
     <button type="button" class="tab-btn active" data-tab="honbu" role="tab">本部</button>
     <button type="button" class="tab-btn" data-tab="nishi" role="tab">西</button>
-    <button type="button" class="tab-btn" data-tab="minami" role="tab">南</button>
     <button type="button" class="tab-btn" data-tab="settei" role="tab">設定</button>
   </nav>
   <main class="wrap">
-    <section id="panel-honbu" class="panel active" data-panel="honbu">
+    <section class="panel active" data-panel="honbu" id="panel-honbu">
       <div class="card">
-        <div class="row-flex" style="justify-content: space-between;">
-          <h2>全体一覧（GAS 連携・閲覧のみ）</h2>
-          <button type="button" class="btn" id="btn-refresh">最新データを取得</button>
+        <div class="row-flex" style="justify-content: space-between; align-items: flex-end;">
+          <div>
+            <label for="global-sender">操作者名（GAS送信用）</label><br />
+            <input type="text" id="global-sender" placeholder="必ず入力" />
+          </div>
+          <button type="button" class="btn" id="btn-sync-get">最新データを取得</button>
         </div>
-        <p class="meta-line" id="honbu-hq-meta"></p>
+        <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
-        <p class="error-msg" id="honbu-error" hidden></p>
+        <p class="error-msg" id="honbu-err" hidden></p>
+        <div class="section-title"><h2>パット類</h2></div>
         <div class="table-wrap">
-          <table id="honbu-table">
+          <table id="honbu-pat">
             <thead>
               <tr>
                 <th>品目</th>
-                <th class="num">西 消費</th>
-                <th class="num">西 在庫</th>
-                <th class="num">西 補充</th>
-                <th>西 状態</th>
-                <th class="num">南 消費</th>
-                <th class="num">南 在庫</th>
-                <th class="num">南 補充</th>
-                <th>南 状態</th>
-              </tr>
-            </thead>
-            <tbody id="honbu-tbody"></tbody>
-            <tfoot id="honbu-tfoot"></tfoot>
-          </table>
-        </div>
-        <p class="meta-line" id="honbu-totals"></p>
-      </div>
-    </section>
-
-    <section id="panel-nishi" class="panel" data-panel="nishi">
-      <div class="card" id="unit-nishi">
-        <div class="row-flex">
-          <div>
-            <label for="nishi-sender">担当者名</label><br />
-            <input type="text" id="nishi-sender" placeholder="必ず入力" autocomplete="name" />
-          </div>
-          <div>
-            <label>集計期間</label><br />
-            <div class="week-nav">
-              <button type="button" class="btn btn-ghost" id="nishi-week-prev" title="前の週">◀</button>
-              <span id="nishi-week-label" style="min-width:10rem;text-align:center;display:inline-block"></span>
-              <button type="button" class="btn btn-ghost" id="nishi-week-next" title="次の週">▶</button>
-            </div>
-          </div>
-        </div>
-        <p class="meta-line" id="nishi-meta"></p>
-        <p class="ok-msg" id="nishi-ok" hidden></p>
-        <p class="error-msg" id="nishi-err" hidden></p>
-        <div class="section-title">
-          <h3>オムツ・パット類</h3>
-          <span class="badge badge-auto">自動連携</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>品目</th>
-                <th class="num">消費数</th>
-                <th class="num">現在庫</th>
-                <th class="num">補充数</th>
+                <th class="col-west">西在庫</th>
+                <th class="col-west">西消費</th>
+                <th class="col-west">西補充(入力)</th>
+                <th class="col-south col-divide">南消費</th>
+                <th class="col-soko">倉庫在庫</th>
+                <th class="col-soko">倉庫補充(入力)</th>
+                <th>確認</th>
                 <th>状態</th>
               </tr>
             </thead>
-            <tbody id="nishi-omu"></tbody>
+            <tbody id="honbu-pat-tbody"></tbody>
           </table>
         </div>
-        <h3>日用品（手動）</h3>
+        <div class="section-title"><h2>日用品</h2></div>
         <div class="table-wrap">
-          <table>
+          <table id="honbu-daily">
             <thead>
               <tr>
                 <th>品目</th>
-                <th class="num">消費数</th>
-                <th class="num">現在庫</th>
-                <th class="num">補充数</th>
+                <th class="col-west">西発注数</th>
+                <th class="col-west">発注日</th>
+                <th>納品数(入力)</th>
+                <th class="col-south col-divide">南卸数(入力)</th>
+                <th class="col-soko">倉庫在庫</th>
+                <th class="col-soko">倉庫補充(入力)</th>
+                <th>確認</th>
                 <th>状態</th>
               </tr>
             </thead>
-            <tbody id="nishi-daily"></tbody>
+            <tbody id="honbu-daily-tbody"></tbody>
           </table>
-        </div>
-        <div class="row-flex" style="margin-top:0.75rem">
-          <button type="button" class="btn" id="nishi-send">スプレッドシートに送信</button>
         </div>
       </div>
     </section>
 
-    <section id="panel-minami" class="panel" data-panel="minami">
-      <div class="card" id="unit-minami">
-        <div class="row-flex">
-          <div>
-            <label for="minami-sender">担当者名</label><br />
-            <input type="text" id="minami-sender" placeholder="必ず入力" autocomplete="name" />
-          </div>
-          <div>
-            <label>集計期間</label><br />
-            <div class="week-nav">
-              <button type="button" class="btn btn-ghost" id="minami-week-prev" title="前の週">◀</button>
-              <span id="minami-week-label" style="min-width:10rem;text-align:center;display:inline-block"></span>
-              <button type="button" class="btn btn-ghost" id="minami-week-next" title="次の週">▶</button>
-            </div>
-          </div>
-        </div>
-        <p class="meta-line" id="minami-meta"></p>
-        <p class="ok-msg" id="minami-ok" hidden></p>
-        <p class="error-msg" id="minami-err" hidden></p>
-        <div class="section-title">
-          <h3>オムツ・パット類</h3>
-          <span class="badge badge-auto">自動連携</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>品目</th>
-                <th class="num">消費数</th>
-                <th class="num">現在庫</th>
-                <th class="num">補充数</th>
-                <th>状態</th>
-              </tr>
-            </thead>
-            <tbody id="minami-omu"></tbody>
-          </table>
-        </div>
-        <h3>日用品（手動）</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>品目</th>
-                <th class="num">消費数</th>
-                <th class="num">現在庫</th>
-                <th class="num">補充数</th>
-                <th>状態</th>
-              </tr>
-            </thead>
-            <tbody id="minami-daily"></tbody>
-          </table>
-        </div>
-        <div class="row-flex" style="margin-top:0.75rem">
-          <button type="button" class="btn" id="minami-send">スプレッドシートに送信</button>
-        </div>
-      </div>
-    </section>
-
-    <section id="panel-settei" class="panel" data-panel="settei">
+    <section class="panel" data-panel="nishi" id="panel-nishi">
       <div class="card">
-        <h2>施設</h2>
         <div class="row-flex">
           <div>
-            <label for="set-facility">施設名</label><br />
-            <input type="text" id="set-facility" class="long" style="min-width:16rem" />
+            <label>集計期間（週：月曜〜日曜）</label><br />
+            <div>
+              <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
+              <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
+              <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
+            </div>
           </div>
         </div>
-        <h2>オムツ品目</h2>
-        <p class="meta-line">介護記録アプリ（同ドメイン）の localStorage から <code>db.settings.supplyProducts</code> を取得します。</p>
-        <div class="row-flex">
-          <button type="button" class="btn btn-secondary" id="set-import-supply">介護記録から自動取得</button>
+        <div class="section-title"><h2>パット類</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>品目</th>
+                <th>西消費(自動)</th>
+                <th>西在庫</th>
+                <th>西補充</th>
+                <th>確認</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody id="n-pat-tbody"></tbody>
+          </table>
         </div>
-        <ul class="settings-list" id="set-list-supply"></ul>
-        <div class="add-row">
-          <input type="text" id="set-new-supply" placeholder="品目名を追加" />
-          <button type="button" class="btn btn-ghost" id="set-add-supply">追加</button>
+        <div class="section-title"><h2>日用品</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>品目</th>
+                <th>発注数</th>
+                <th>発注日</th>
+                <th>操作</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody id="n-daily-tbody"></tbody>
+          </table>
         </div>
-        <h2>日用品リスト</h2>
-        <ul class="settings-list" id="set-list-daily"></ul>
-        <div class="add-row">
-          <input type="text" id="set-new-daily" placeholder="品目名を追加" />
-          <button type="button" class="btn btn-ghost" id="set-add-daily">追加</button>
-        </div>
-        <h2>しきい値（在庫がこの数以下で状態を表示）</h2>
-        <p class="meta-line">品目ごと：緊急（最小） / 要補充</p>
-        <div class="th-grid" style="max-width:28rem">
-          <span>品目</span>
-          <span>緊急</span>
-          <span>要補充</span>
-        </div>
-        <ul class="settings-list" id="set-thresholds" style="max-width:32rem"></ul>
-        <h2>バックエンド</h2>
-        <p class="meta-line">GAS URL（参照のみ）<br /><code id="set-gas-url" style="word-break:break-all"></code></p>
-        <p class="meta-line">トークン（参照のみ）<br /><code id="set-gas-token"></code></p>
       </div>
+    </section>
+
+    <section class="panel" data-panel="settei" id="panel-settei">
+      <div class="card" id="settings-root"></div>
     </section>
   </main>
 
@@ -454,8 +258,6 @@
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbxrvIwntBwCFnVmH5pGwVMMZL1Petm3CeiOT3SdB3cdGNNq6dZRpJRHLZnQEYpom2ApqQ/exec';
   var TOKEN = 'KAIGO_ZAIKO_2025';
   var LS_KEY = 'zaiko_db';
-  var LS_NISHI = 'zaiko_nishi';
-  var LS_MINAMI = 'zaiko_minami';
   var LS_KAIGO_NISHI = 'kaigo_nishi';
   var LS_KAIGO_MINAMI = 'kaigo_minami';
 
@@ -469,72 +271,11 @@
     'トイレハイター', 'ゴミ袋45L', 'イージーバックS', 'イージーバックLL'
   ];
 
-  function defaultDb() {
-    return {
-      settings: {
-        facilityName: '○○通所介護',
-        supplyProducts: [],
-        dailyProducts: DEFAULT_DAILY.slice(),
-        thresholds: {}
-      },
-      nishi: { sender: '', sentAt: '', weekStart: '', items: [] },
-      minami: { sender: '', sentAt: '', weekStart: '', items: [] }
-    };
-  }
-
-  function loadDb() {
-    try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (!raw) return defaultDb();
-      var j = JSON.parse(raw);
-      var d = defaultDb();
-      if (j.settings) {
-        d.settings.facilityName = j.settings.facilityName != null ? String(j.settings.facilityName) : d.settings.facilityName;
-        d.settings.supplyProducts = Array.isArray(j.settings.supplyProducts) ? j.settings.supplyProducts.map(String) : d.settings.supplyProducts;
-        d.settings.dailyProducts = Array.isArray(j.settings.dailyProducts) && j.settings.dailyProducts.length
-          ? j.settings.dailyProducts.map(String) : d.settings.dailyProducts;
-        d.settings.thresholds = j.settings.thresholds && typeof j.settings.thresholds === 'object' ? j.settings.thresholds : {};
-      }
-      ['nishi', 'minami'].forEach(function (k) {
-        if (j[k] && typeof j[k] === 'object') {
-          d[k].sender = j[k].sender != null ? String(j[k].sender) : '';
-          d[k].sentAt = j[k].sentAt != null ? String(j[k].sentAt) : '';
-          d[k].weekStart = j[k].weekStart != null ? String(j[k].weekStart) : '';
-          d[k].items = Array.isArray(j[k].items) ? j[k].items : [];
-        }
-      });
-      return d;
-    } catch (e) {
-      return defaultDb();
-    }
-  }
-
-  var db = loadDb();
-
-  function saveDb() {
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
-  }
-
-  function saveUnitKey(unit) {
-    try {
-      var key = unit === 'nishi' ? LS_NISHI : LS_MINAMI;
-      localStorage.setItem(key, JSON.stringify(db[unit]));
-    } catch (e) {}
-  }
-
-  function formatDate(d) {
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, '0');
-    var day = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + day;
-  }
-
-  function parseISODate(s) {
-    if (!s) return null;
-    var p = s.split('-');
-    if (p.length !== 3) return null;
-    var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
-    return isNaN(d.getTime()) ? null : d;
+  function toJSTDateString(dateStr) {
+    if (!dateStr) return '';
+    var jst = new Date(new Date(dateStr).getTime() + 9 * 60 * 60 * 1000);
+    if (isNaN(jst.getTime())) return '';
+    return jst.toISOString().slice(0, 10);
   }
 
   function getMonday(d) {
@@ -550,929 +291,815 @@
     return x;
   }
 
-  function weekRangeLabel(monday) {
-    var sun = addDays(monday, 6);
-    return formatDate(monday) + ' 〜 ' + formatDate(sun) + '（月〜日）';
+  function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  function toJSTDate(dateStr) {
-    var d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    var jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-    return jst.toISOString().slice(0, 10);
+  function inWeekJST(supplyDateStr, monday) {
+    return toJSTDateString(supplyDateStr) >= ymd(monday) && toJSTDateString(supplyDateStr) <= ymd(addDays(monday, 6));
   }
 
-  function inWeek(dateStr, monday) {
-    var jstDate = toJSTDate(dateStr);
-    if (!jstDate) return false;
-    var t = parseISODate(jstDate);
-    if (!t) return false;
-    var m = getMonday(t);
-    return formatDate(m) === formatDate(monday);
-  }
-
-  function getKaigoSupplies(lsName) {
+  function getKaigoSupplies(ls) {
     try {
-      var raw = localStorage.getItem(lsName);
+      var raw = localStorage.getItem(ls);
       if (!raw) return [];
       var j = JSON.parse(raw);
-      var sup = (j && j.db && j.db.supplies) || (j && j.supplies);
-      if (!Array.isArray(sup)) return [];
-      return sup;
-    } catch (e) {
-      return [];
-    }
+      var a = (j && j.db && j.db.supplies) || (j && j.db && j.db.supply) || j.supplies;
+      if (!a && j && j.supply) a = j.supply;
+      return Array.isArray(a) ? a : [];
+    } catch (e) { return []; }
   }
 
-  function sumSupplyByProduct(weekStart, lsName, productNames) {
-    var list = getKaigoSupplies(lsName);
+  function sumSuppliesInWeek(ls, productNames, monday) {
     var set = {};
-    for (var h = 0; h < productNames.length; h++) set[productNames[h]] = 0;
-    for (var i = 0; i < list.length; i++) {
-      var s = list[i];
-      if (!s || !s.date) continue;
-      if (!inWeek(s.date, weekStart)) continue;
-      var pr = s.product != null ? String(s.product) : '';
-      if (set[pr] === undefined) continue;
+    for (var i = 0; i < productNames.length; i++) set[productNames[i]] = 0;
+    var list = getKaigoSupplies(ls);
+    for (var k = 0; k < list.length; k++) {
+      var s = list[k];
+      if (!s) continue;
+      if (!inWeekJST(s.date, monday)) continue;
+      var p = s.product != null ? String(s.product) : '';
+      if (set[p] === undefined) continue;
       var q = parseFloat(s.qty);
       if (isNaN(q)) q = 0;
-      set[pr] += q;
+      set[p] += q;
     }
     return set;
   }
 
-  function getThreshold(name) {
-    var t = db.settings.thresholds && db.settings.thresholds[name];
-    if (!t) return { danger: null, warn: null };
+  function sumSuppliesAllTime(ls, productNames) {
+    var o = {};
+    for (var i = 0; i < productNames.length; i++) o[productNames[i]] = 0;
+    var list = getKaigoSupplies(ls);
+    for (var k = 0; k < list.length; k++) {
+      var s = list[k];
+      if (!s || !s.date) continue;
+      if (!toJSTDateString(s.date)) continue;
+      var p = s.product != null ? String(s.product) : '';
+      if (o[p] === undefined) continue;
+      var q = parseFloat(s.qty);
+      if (isNaN(q)) q = 0;
+      o[p] += q;
+    }
+    return o;
+  }
+
+  function escapeAttr(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+  function escapeText(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;');
+  }
+
+  function defStockRow() { return { initial: 0, warnAt: 10, dangerAt: 5 }; }
+  function defSupplyRow() {
     return {
-      danger: t.danger != null && t.danger !== '' ? parseFloat(t.danger) : null,
-      warn: t.warn != null && t.warn !== '' ? parseFloat(t.warn) : null
+      nishiConsumed: 0,
+      nishiReplenish: 0,
+      nishiConfirmed: false,
+      minamiConsumed: 0,
+      sokoReplenish: 0,
+      sokoConfirmed: false,
+      cumeWestTransfer: 0,
+      cumeSokoInbound: 0
+    };
+  }
+  function defDailyRow() {
+    return {
+      nishiOrder: 0,
+      nishiOrderDate: '',
+      deliveryCount: 0,
+      minamiIssued: 0,
+      sokoReplenish: 0,
+      sokoConfirmed: false,
+      cumeSokoInbound: 0
     };
   }
 
-  function statusFromStock(stockNum) {
-    if (stockNum === null || isNaN(stockNum)) return { key: 'ok', label: '正常' };
-    var th = arguments.length > 1 ? arguments[1] : { danger: null, warn: null };
-    var danger = th.danger, warn = th.warn;
-    if (danger != null && !isNaN(danger) && stockNum <= danger) return { key: 'danger', label: '!!緊急' };
-    if (warn != null && !isNaN(warn) && stockNum <= warn) return { key: 'warn', label: '⚠要補充' };
-    return { key: 'ok', label: '正常' };
+  function defaultDb() {
+    return {
+      settings: {
+        facilityName: '○○通所介護',
+        supplyProducts: [],
+        dailyProducts: DEFAULT_DAILY.slice(),
+        nishiStock: {},
+        sokoStock: {}
+      },
+      supply: {},
+      daily: {},
+      lastSynced: '',
+      lastSyncedBy: ''
+    };
   }
 
-  function badgeClass(key) {
-    if (key === 'danger') return 'badge badge-danger';
-    if (key === 'warn') return 'badge badge-warn';
+  function migrateDb(raw) {
+    if (!raw || typeof raw !== 'object') return defaultDb();
+    var o = defaultDb();
+    if (raw.settings) {
+      o.settings.facilityName = raw.settings.facilityName != null ? String(raw.settings.facilityName) : o.settings.facilityName;
+      o.settings.supplyProducts = Array.isArray(raw.settings.supplyProducts) ? raw.settings.supplyProducts.map(String) : [];
+      o.settings.dailyProducts = (Array.isArray(raw.settings.dailyProducts) && raw.settings.dailyProducts.length)
+        ? raw.settings.dailyProducts.map(String) : o.settings.dailyProducts;
+      o.settings.nishiStock = raw.settings.nishiStock && typeof raw.settings.nishiStock === 'object' ? raw.settings.nishiStock : {};
+      o.settings.sokoStock = raw.settings.sokoStock && typeof raw.settings.sokoStock === 'object' ? raw.settings.sokoStock : {};
+    }
+    o.supply = raw.supply && typeof raw.supply === 'object' ? raw.supply : {};
+    o.daily = raw.daily && typeof raw.daily === 'object' ? raw.daily : {};
+    o.lastSynced = raw.lastSynced != null ? String(raw.lastSynced) : '';
+    o.lastSyncedBy = raw.lastSyncedBy != null ? String(raw.lastSyncedBy) : '';
+    if (!o.settings.dailyProducts.length) o.settings.dailyProducts = DEFAULT_DAILY.slice();
+    return o;
+  }
+
+  function loadDb() {
+    try {
+      var t = localStorage.getItem(LS_KEY);
+      if (t) return migrateDb(JSON.parse(t));
+    } catch (e) {}
+    return defaultDb();
+  }
+
+  var db = loadDb();
+  var weekMonday = getMonday(new Date());
+  if (!localStorage.getItem('zaiko_week_mon')) {
+    try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
+  } else {
+    try {
+      var ps = localStorage.getItem('zaiko_week_mon').split('-');
+      weekMonday = new Date(parseInt(ps[0], 10), parseInt(ps[1], 10) - 1, parseInt(ps[2], 10));
+    } catch (e) {}
+  }
+
+  function saveDb() {
+    localStorage.setItem(LS_KEY, JSON.stringify(db));
+  }
+
+  function getSender() {
+    var e = document.getElementById('global-sender');
+    return (e && e.value || '').trim();
+  }
+
+  function ensureProductRows() {
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      else {
+        if (db.supply[p].cumeWestTransfer == null) db.supply[p].cumeWestTransfer = 0;
+        if (db.supply[p].cumeSokoInbound == null) db.supply[p].cumeSokoInbound = 0;
+        if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
+        if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
+      }
+    });
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      else if (db.daily[p].cumeSokoInbound == null) db.daily[p].cumeSokoInbound = 0;
+    });
+    [db.settings.supplyProducts, db.settings.dailyProducts].forEach(function (arr) {
+      arr.forEach(function (p) {
+        if (!db.settings.sokoStock[p]) db.settings.sokoStock[p] = defStockRow();
+      });
+    });
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
+    });
+  }
+
+  function patStockNishi(p) {
+    ensureProductRows();
+    var ns = db.settings.nishiStock[p] || defStockRow();
+    var s = db.supply[p] || defSupplyRow();
+    var nAll = sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] : 0;
+    return ns.initial - nAll + s.cumeWestTransfer;
+  }
+
+  function patStockSoko(p) {
+    ensureProductRows();
+    var sk = db.settings.sokoStock[p] || defStockRow();
+    var s = db.supply[p] || defSupplyRow();
+    var mAll = sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] : 0;
+    return sk.initial - s.cumeWestTransfer - mAll + s.cumeSokoInbound;
+  }
+
+  function dailySoko(p) {
+    ensureProductRows();
+    var sk = db.settings.sokoStock[p] || defStockRow();
+    var d = db.daily[p] || defDailyRow();
+    return sk.initial - d.deliveryCount - d.minamiIssued + d.cumeSokoInbound;
+  }
+
+  function statusFromSokoStock(p) {
+    var st = (db.settings.sokoStock[p] && db.settings.sokoStock[p].warnAt != null) ? db.settings.sokoStock[p].warnAt : 10;
+    var dg = (db.settings.sokoStock[p] && db.settings.sokoStock[p].dangerAt != null) ? db.settings.sokoStock[p].dangerAt : 5;
+    var soko = 0;
+    if (db.settings.dailyProducts.indexOf(p) >= 0) {
+      soko = dailySoko(p);
+    } else {
+      soko = patStockSoko(p);
+    }
+    if (soko <= dg) return { k: 'danger', label: '!!緊急' };
+    if (soko <= st) return { k: 'warn', label: '⚠要補充' };
+    return { k: 'ok', label: '正常' };
+  }
+
+  function badgeClass(k) {
+    if (k === 'danger') return 'badge badge-danger';
+    if (k === 'warn') return 'badge badge-warn';
+    if (k === 'ship') return 'badge badge-ship';
     return 'badge badge-ok';
   }
 
-  function mondayForUnit(unit) {
-    var w = db[unit].weekStart;
-    if (w) {
-      var p = parseISODate(w);
-      if (p) return getMonday(p);
-    }
-    return getMonday(new Date());
+  function nowStamp() {
+    var n = new Date();
+    return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0') + ' ' +
+      String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
   }
 
-  function setMonday(unit, monday) {
-    db[unit].weekStart = formatDate(monday);
-    saveDb();
-    saveUnitKey(unit);
-  }
-
-  var saveTimer;
-  function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      saveDb();
-      saveUnitKey('nishi');
-      saveUnitKey('minami');
-    }, 200);
-  }
-
-  // --- 本部
-  var hqCache = { nishi: null, minami: null, raw: null };
-
-  function parseGasPayload(text) {
-    if (!text) return null;
-    var t = text.trim();
-    try {
-      var parsed = JSON.parse(t);
-      if (typeof parsed === 'string') {
-        try { parsed = JSON.parse(parsed); } catch (e1) {}
-      }
-      return parsed;
-    } catch (e) {
-      return { _text: t };
-    }
-  }
-
-  function toObjectMaybe(v) {
-    if (!v) return null;
-    if (typeof v === 'object') return v;
-    if (typeof v !== 'string') return null;
-    try {
-      var p = JSON.parse(v);
-      if (typeof p === 'string') {
-        try { p = JSON.parse(p); } catch (e2) {}
-      }
-      return (p && typeof p === 'object') ? p : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function firstDefined(paths) {
-    for (var i = 0; i < paths.length; i++) {
-      if (paths[i] !== undefined && paths[i] !== null) return paths[i];
-    }
-    return null;
-  }
-
-  function normalizeUnitData(unitObj) {
-    function pickAny(obj, keys) {
-      for (var i = 0; i < keys.length; i++) {
-        if (obj && obj[keys[i]] !== undefined && obj[keys[i]] !== null && obj[keys[i]] !== '') return obj[keys[i]];
-      }
-      return null;
-    }
-
-    function guessProductFromObject(row) {
-      var skip = {
-        sender: true, sentAt: true, status: true, unit: true, area: true,
-        送信者: true, 送信日時: true, 状態: true, 消費数: true, 現在庫: true, 補充数: true
-      };
-      for (var k in row) {
-        if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
-        if (skip[k]) continue;
-        var v = row[k];
-        if (typeof v === 'string' && v.trim()) return v.trim();
-      }
-      return null;
-    }
-
-    function normalizeItemRow(row) {
-      if (!row) return null;
-      if (Array.isArray(row)) {
-        if (!row.length) return null;
-        return {
-          product: row[0] != null ? String(row[0]) : '',
-          consumed: row.length > 1 ? row[1] : 0,
-          stock: row.length > 2 ? row[2] : '',
-          replenish: row.length > 3 ? row[3] : '',
-          status: row.length > 4 ? row[4] : ''
-        };
-      }
-      if (typeof row !== 'object') return null;
-      var product = pickAny(row, [
-        'product', 'item', 'name', '品目', '品名', '物品名', '商品名', 'productName', 'itemName'
-      ]) || guessProductFromObject(row);
-      if (!product) return null;
-      return {
-        product: String(product),
-        consumed: pickAny(row, ['consumed', 'use', 'qty', '消費数', '使用数', '使用量', 'used', 'consumption']) || 0,
-        stock: pickAny(row, ['stock', 'currentStock', '現在庫', 'inventory', 'stockQty', '在庫']) || '',
-        replenish: pickAny(row, ['replenish', 'refill', '補充数', 'restock', 'orderQty', '補充']) || '',
-        status: pickAny(row, ['status', '状態']) || ''
-      };
-    }
-
-    unitObj = toObjectMaybe(unitObj) || unitObj;
-    if (!unitObj) return { sender: '', sentAt: '', items: [] };
-    var rawItems = null;
-    if (Array.isArray(unitObj)) {
-      rawItems = unitObj;
-    } else if (typeof unitObj === 'object') {
-      rawItems = firstDefined([
-        unitObj.items,
-        unitObj.list,
-        unitObj.rows,
-        unitObj.data,
-        unitObj.details,
-        unitObj.一覧,
-        unitObj.明細
-      ]);
-      if (!Array.isArray(rawItems)) {
-        rawItems = [];
-        for (var k in unitObj) {
-          if (!Object.prototype.hasOwnProperty.call(unitObj, k)) continue;
-          if (k === 'sender' || k === 'sentAt' || k === 'name' || k === 'user' || k === '送信者' || k === '送信日時') continue;
-          var v = unitObj[k];
-          if (v && typeof v === 'object') {
-            var row = {};
-            for (var kk in v) {
-              if (Object.prototype.hasOwnProperty.call(v, kk)) row[kk] = v[kk];
-            }
-            if (row.product == null && row.item == null && row.name == null && row.品目 == null && row.productName == null && row.物品名 == null) {
-              row.product = k;
-            }
-            rawItems.push(row);
-          }
-        }
-      }
-    }
-    if (!Array.isArray(rawItems)) rawItems = [];
-    var items = [];
-    for (var i = 0; i < rawItems.length; i++) {
-      var n = normalizeItemRow(rawItems[i]);
-      if (n) items.push(n);
-    }
+  function payloadForGAS() {
     return {
-      sender: firstDefined([unitObj && unitObj.sender, unitObj && unitObj.name, unitObj && unitObj.user, unitObj && unitObj.lastSender, unitObj && unitObj.送信者]) || '',
-      sentAt: firstDefined([unitObj && unitObj.sentAt, unitObj && unitObj.datetime, unitObj && unitObj.updatedAt, unitObj && unitObj.lastSentAt, unitObj && unitObj.送信日時]) || '',
-      items: items
+      token: TOKEN,
+      sender: getSender() || '未記入',
+      sentAt: nowStamp(),
+      supply: db.supply,
+      daily: db.daily,
+      settings: db.settings
     };
   }
 
-  function resolveHqData(data) {
-    var d0 = toObjectMaybe(data);
-    var root = firstDefined([
-      toObjectMaybe(d0 && d0.body),
-      toObjectMaybe(d0 && d0.honbu),
-      toObjectMaybe(d0 && d0.data),
-      toObjectMaybe(d0 && d0.result),
-      toObjectMaybe(d0 && d0.payload),
-      toObjectMaybe(d0 && d0.response)
-      ,
-      d0
-    ]);
-    if (!root || typeof root !== 'object') {
-      return {
-        nishi: { sender: '', sentAt: '', items: [] },
-        minami: { sender: '', sentAt: '', items: [] }
-      };
+  function parseGas(text) {
+    try {
+      var j = JSON.parse(text);
+      if (typeof j === 'string') { try { j = JSON.parse(j); } catch (e1) {} }
+      return j;
+    } catch (e) { return { _raw: text }; }
+  }
+
+  function mergeFromServer(d) {
+    if (!d || typeof d !== 'object') return;
+    if (d.settings && typeof d.settings === 'object') {
+      db.settings = d.settings;
     }
-    if (Array.isArray(root)) {
-      var nRows = [];
-      var mRows = [];
-      for (var i = 0; i < root.length; i++) {
-        var row = root[i];
-        if (!row || typeof row !== 'object') continue;
-        var unit = String(firstDefined([row.unit, row.area, row.section, row.branch, row.location]) || '').toLowerCase();
-        var unitJp = String(firstDefined([row.unit, row.area, row.section, row.branch, row.location]) || '');
-        var target = null;
-        if (unit === 'nishi' || unit === 'west' || unitJp === '西') target = nRows;
-        if (unit === 'minami' || unit === 'south' || unitJp === '南') target = mRows;
-        if (!target) continue;
-        target.push({
-          product: firstDefined([row.product, row.item, row.name, row.品目]) || '',
-          consumed: firstDefined([row.consumed, row.use, row.qty, row.消費数, 0]),
-          stock: firstDefined([row.stock, row.currentStock, row.現在庫, '']),
-          replenish: firstDefined([row.replenish, row.refill, row.補充数, ''])
-        });
+    if (d.supply && typeof d.supply === 'object') {
+      for (var k in d.supply) {
+        if (Object.prototype.hasOwnProperty.call(d.supply, k)) db.supply[k] = d.supply[k];
       }
-      return {
-        nishi: { sender: '', sentAt: '', items: nRows },
-        minami: { sender: '', sentAt: '', items: mRows }
-      };
     }
-    var nishiRaw = firstDefined([
-      root.nishi, root.west, root.西, root.unitNishi, root.n,
-      root['西ユニット'], root['西_ユニット'], root.nishiUnit, root.unit_nishi,
-      root['本部'] && (root['本部'].nishi || root['本部'].west || root['本部']['西ユニット'])
-    ]);
-    var minamiRaw = firstDefined([
-      root.minami, root.south, root.南, root.unitMinami, root.m,
-      root['南ユニット'], root['南_ユニット'], root.minamiUnit, root.unit_minami,
-      root['本部'] && (root['本部'].minami || root['本部'].south || root['本部']['南ユニット'])
-    ]);
-    return {
-      nishi: normalizeUnitData(nishiRaw),
-      minami: normalizeUnitData(minamiRaw)
-    };
+    if (d.daily && typeof d.daily === 'object') {
+      for (var j in d.daily) {
+        if (Object.prototype.hasOwnProperty.call(d.daily, j)) db.daily[j] = d.daily[j];
+      }
+    }
+    if (d.lastSynced) db.lastSynced = String(d.lastSynced);
+    if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
   }
 
-  function ensureRefreshButtonEnabled() {
-    var btn = document.getElementById('btn-refresh');
-    if (!btn) return;
-    if (btn.disabled) btn.disabled = false;
-    if (btn.style && btn.style.pointerEvents === 'none') btn.style.pointerEvents = 'auto';
+  function resolveGASBody(o) {
+    if (!o || typeof o !== 'object') return o;
+    if (o.data && typeof o.data === 'object' && (o.data.settings || o.data.supply || o.data.daily)) return o.data;
+    if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return o.body;
+    if (o.payload && typeof o.payload === 'object') return o.payload;
+    if (o.result && typeof o.result === 'object') return o.result;
+    return o;
   }
 
-  function fetchHq() {
-    var elErr = document.getElementById('honbu-error');
-    var info = document.getElementById('honbu-info');
-    var btn = document.getElementById('btn-refresh');
-    elErr.hidden = true;
-    if (info) info.textContent = '最新データを取得中...';
-    if (btn) btn.textContent = '取得中...';
-    ensureRefreshButtonEnabled();
+  function postGAS() {
+    return fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify(payloadForGAS()),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+  }
+
+  function getGAS() {
     return fetch(GAS_URL + '?token=' + encodeURIComponent(TOKEN) + '&ts=' + Date.now(), {
       method: 'GET',
       mode: 'cors',
       redirect: 'follow'
-    })
-      .then(function (r) { return r.text(); })
-      .then(function (text) {
-        var data = parseGasPayload(text);
-        hqCache.raw = data;
-        var resolved = resolveHqData(data);
-        hqCache.nishi = resolved.nishi;
-        hqCache.minami = resolved.minami;
-        if (!hqCache.nishi) hqCache.nishi = { sender: '', sentAt: '', items: [] };
-        if (!hqCache.minami) hqCache.minami = { sender: '', sentAt: '', items: [] };
-        if (!Array.isArray(hqCache.nishi.items)) hqCache.nishi.items = [];
-        if (!Array.isArray(hqCache.minami.items)) hqCache.minami.items = [];
-        renderHq();
-        if (info) info.textContent = '取得完了: ' + new Date().toLocaleString('ja-JP') +
-          '（西 ' + hqCache.nishi.items.length + '件 / 南 ' + hqCache.minami.items.length + '件）';
-        if (info && hqCache.nishi.items.length === 0 && hqCache.minami.items.length === 0) {
-          var k = (data && typeof data === 'object') ? Object.keys(data).join(', ') : typeof data;
-          info.textContent += ' / 受信キー: ' + k;
-          var d = data && data.data;
-          if (d && typeof d === 'object') {
-            info.textContent += ' / dataキー: ' + (Array.isArray(d) ? 'array(' + d.length + ')' : Object.keys(d).join(', '));
-            var nn = d['西ユニット'];
-            if (nn !== undefined) {
-              var nnObj = toObjectMaybe(nn) || nn;
-              var t = Array.isArray(nnObj) ? 'array(' + nnObj.length + ')' : (nnObj && typeof nnObj === 'object' ? 'object(' + Object.keys(nnObj).slice(0, 5).join('/') + ')' : typeof nnObj);
-              info.textContent += ' / 西ユニット型: ' + t;
-            }
-          }
-        }
-      })
-      .catch(function (e) {
-        elErr.textContent = '取得に失敗しました: ' + (e && e.message ? e.message : e);
-        elErr.hidden = false;
-        if (info) info.textContent = '取得失敗: 通信またはCORS設定を確認してください';
-      })
-      .finally(function () {
-        if (btn) btn.textContent = '最新データを取得';
-        ensureRefreshButtonEnabled();
-      });
+    });
   }
 
-  function itemByProduct(items) {
-    var m = {};
-    if (!Array.isArray(items)) return m;
-    for (var i = 0; i < items.length; i++) {
-      m[items[i].product] = items[i];
+  function renderStamp() {
+    var el = document.getElementById('honbu-stamp');
+    if (db.lastSynced && db.lastSyncedBy) {
+      el.textContent = '最終更新: ' + db.lastSyncedBy + ' ／ ' + db.lastSynced;
+    } else {
+      el.textContent = '最終更新: なし';
     }
-    return m;
   }
 
-  function renderHq() {
-    var n = hqCache.nishi || {};
-    var m = hqCache.minami || {};
-    function senderFromItems(items) {
-      if (!Array.isArray(items)) return '';
-      for (var i = 0; i < items.length; i++) {
-        var it = items[i];
-        if (!it || typeof it !== 'object') continue;
-        var s = firstDefined([it.sender, it.name, it.user, it.送信者, it.担当者]);
-        if (s) return String(s);
-      }
-      return '';
-    }
-    var sn = n.sender || senderFromItems(n.items) || '—';
-    var san = m.sender || senderFromItems(m.items) || '—';
-    var tn = n.sentAt || '—', tam = m.sentAt || '—';
-    document.getElementById('honbu-hq-meta').textContent = '最終送信 西: ' + sn + ' ' + tn + ' ｜ 南: ' + san + ' ' + tam;
+  function renderHonbu() {
+    ensureProductRows();
+    var ptb = document.getElementById('honbu-pat-tbody');
+    var dtb = document.getElementById('honbu-daily-tbody');
+    ptb.innerHTML = '';
+    dtb.innerHTML = '';
+    var allN = sumSuppliesAllTime(LS_KAIGO_NISHI, db.settings.supplyProducts);
+    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
 
-    var mn = itemByProduct(n.items || []);
-    var mm = itemByProduct(m.items || []);
-    var all = {};
-    function addKeys(map) {
-      for (var k in map) {
-        if (Object.prototype.hasOwnProperty.call(map, k)) all[k] = true;
-      }
-    }
-    addKeys(mn);
-    addKeys(mm);
-    var names = Object.keys(all);
-    var supplyProducts = Array.isArray(db.settings.supplyProducts) ? db.settings.supplyProducts : [];
-    var dailyProducts = Array.isArray(db.settings.dailyProducts) ? db.settings.dailyProducts : [];
-    var allSet = {};
-    for (var ai = 0; ai < names.length; ai++) allSet[names[ai]] = true;
-    var supplyNames = [];
-    var dailyNames = [];
-    for (var si = 0; si < supplyProducts.length; si++) {
-      if (allSet[supplyProducts[si]]) supplyNames.push(supplyProducts[si]);
-    }
-    for (var di = 0; di < dailyProducts.length; di++) {
-      if (allSet[dailyProducts[di]]) dailyNames.push(dailyProducts[di]);
-    }
-
-    var tbody = document.getElementById('honbu-tbody');
-    tbody.innerHTML = '';
-    var sumN = 0, sumM = 0;
-    function appendSectionRow(label) {
-      var trS = document.createElement('tr');
-      trS.className = 'hq-section-row';
-      trS.innerHTML = '<td colspan="9"></td>';
-      trS.cells[0].textContent = label;
-      tbody.appendChild(trS);
-    }
-    function appendDataRow(name) {
-      var rn = mn[name] || {};
-      var rm = mm[name] || {};
-      var cn = parseFloat(rn.consumed);
-      var cm = parseFloat(rm.consumed);
-      if (isNaN(cn)) cn = 0;
-      if (isNaN(cm)) cm = 0;
-      sumN += cn;
-      sumM += cm;
-      var snu = parseFloat(rn.stock);
-      var smu = parseFloat(rm.stock);
-      if (isNaN(snu)) snu = null;
-      if (isNaN(smu)) smu = null;
-      var thN = getThreshold(name);
-      var thM = thN;
-      var stN = statusFromStock(snu, thN);
-      var stM = statusFromStock(smu, thM);
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      var wk = patStockNishi(p);
+      var sko = patStockSoko(p);
+      var nWeek = allN[p] != null ? allN[p] : 0;
+      var mAll = allM[p] != null ? allM[p] : 0;
+      var stH = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td></td><td class="num"></td><td class="num"></td><td class="num"></td><td></td><td class="num"></td><td class="num"></td><td class="num"></td><td></td>';
-      tr.cells[0].textContent = name;
-      tr.cells[1].textContent = isNaN(parseFloat(rn.consumed)) ? (rn.consumed == null || rn.consumed === '' ? '—' : String(rn.consumed)) : String(cn);
-      tr.cells[2].textContent = isNaN(snu) ? (rn.stock == null || rn.stock === '' ? '—' : String(rn.stock)) : String(snu);
-      tr.cells[3].textContent = rn.replenish == null || rn.replenish === '' ? '—' : String(rn.replenish);
-      tr.cells[4].innerHTML = '<span class="' + badgeClass(stN.key) + '">' + stN.label + '</span>';
-      tr.cells[5].textContent = isNaN(parseFloat(rm.consumed)) ? (rm.consumed == null || rm.consumed === '' ? '—' : String(rm.consumed)) : String(cm);
-      tr.cells[6].textContent = isNaN(smu) ? (rm.stock == null || rm.stock === '' ? '—' : String(rm.stock)) : String(smu);
-      tr.cells[7].textContent = rm.replenish == null || rm.replenish === '' ? '—' : String(rm.replenish);
-      tr.cells[8].innerHTML = '<span class="' + badgeClass(stM.key) + '">' + stM.label + '</span>';
-      tbody.appendChild(tr);
-    }
-    if (supplyNames.length) {
-      appendSectionRow('オムツ・パット類');
-      for (var i = 0; i < supplyNames.length; i++) appendDataRow(supplyNames[i]);
-    }
-    if (dailyNames.length) {
-      appendSectionRow('日用品');
-      for (var j = 0; j < dailyNames.length; j++) appendDataRow(dailyNames[j]);
-    }
-    if (!supplyNames.length && !dailyNames.length) {
-      var tr0 = document.createElement('tr');
-      tr0.innerHTML = '<td colspan="9" style="text-align:center;color:#64748b">設定の品目リストに一致するデータがありません。</td>';
-      tbody.appendChild(tr0);
-    }
-    var tfoot = document.getElementById('honbu-tfoot');
-    tfoot.innerHTML = '<tr><th colspan="1">西・南 消費合計</th><th class="num">' + ((supplyNames.length || dailyNames.length) ? sumN : '—') + '</th><th colspan="2"></th><th></th><th class="num">' + ((supplyNames.length || dailyNames.length) ? sumM : '—') + '</th><th colspan="3"></th></tr>';
-    document.getElementById('honbu-totals').textContent = '西の消費合計: ' + sumN + ' ｜ 南の消費合計: ' + sumM;
-  }
+        '<td></td><td class="num col-west"></td><td class="num col-west"></td>' +
+        '<td class="col-west"></td><td class="num col-south col-divide"></td>' +
+        '<td class="num col-soko"></td><td class="col-soko"></td><td></td><td></td>';
+      tr.cells[0].textContent = p;
+      tr.cells[1].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
+      tr.cells[2].textContent = String(nWeek);
+      tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
+      tr.cells[3].querySelector('input').value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
+      tr.cells[3].querySelector('input').setAttribute('data-p', p);
+      tr.cells[4].textContent = String(mAll);
+      tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
+      tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
+      tr.cells[6].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
+      tr.cells[6].querySelector('input').setAttribute('data-p', p);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn';
+      btn.textContent = '確認';
+      btn.setAttribute('data-act', 'hon-pat');
+      btn.setAttribute('data-p', p);
+      tr.cells[7].appendChild(btn);
+      tr.cells[8].innerHTML = '<span class="' + badgeClass(stH.k) + '">' + stH.label + '</span>';
+      ptb.appendChild(tr);
+    });
 
-  // --- 西・南 ユニット UI
-  function syncItemsFromState(unit) {
-    var u = db[unit];
-    var w = mondayForUnit(unit);
-    var sp = db.settings.supplyProducts.slice();
-    var dp = db.settings.dailyProducts.slice();
-    var ls = unit === 'nishi' ? LS_KAIGO_NISHI : LS_KAIGO_MINAMI;
-    var sums = sumSupplyByProduct(w, ls, sp);
-    var byName = {};
-    u.items.forEach(function (it) { byName[it.product] = it; });
-    u.items = [];
-    sp.forEach(function (p) {
-      var con = sums[p] != null ? sums[p] : 0;
-      var old = byName[p];
-      var st = old && old.stock !== '' && old.stock != null ? parseFloat(old.stock) : null;
-      var rep = old && old.replenish !== '' && old.replenish != null ? String(old.replenish) : '';
-      var stv = isNaN(st) ? (old && old.stock != null ? String(old.stock) : '') : st;
-      u.items.push({
-        product: p,
-        consumed: con,
-        stock: stv === '' || stv === null ? '' : stv,
-        replenish: rep,
-        _auto: true
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var d0 = db.daily[p];
+      var sk2 = dailySoko(p);
+      var stD = statusFromSokoStock(p);
+      var tr2 = document.createElement('tr');
+      tr2.innerHTML =
+        '<td></td><td class="num col-west"></td><td class="col-west"></td><td class="num"></td>' +
+        '<td class="num col-south col-divide"></td><td class="num col-soko"></td><td class="col-soko"></td><td></td><td></td>';
+      tr2.cells[0].textContent = p;
+      tr2.cells[1].textContent = String(d0.nishiOrder != null ? d0.nishiOrder : 0);
+      tr2.cells[2].textContent = d0.nishiOrderDate || '—';
+      tr2.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-dv" data-p="" style="width:4.5rem" />';
+      tr2.cells[3].querySelector('input').value = d0.deliveryCount != null ? d0.deliveryCount : '';
+      tr2.cells[3].querySelector('input').setAttribute('data-p', p);
+      tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" data-p="" style="width:4.5rem" />';
+      tr2.cells[4].querySelector('input').value = d0.minamiIssued != null ? d0.minamiIssued : '';
+      tr2.cells[4].querySelector('input').setAttribute('data-p', p);
+      tr2.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
+      tr2.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-dsr" data-p="" style="width:4.5rem" />';
+      tr2.cells[6].querySelector('input').value = d0.sokoReplenish != null && d0.sokoReplenish !== '' ? d0.sokoReplenish : '';
+      tr2.cells[6].querySelector('input').setAttribute('data-p', p);
+      var b2 = document.createElement('button');
+      b2.type = 'button';
+      b2.className = 'btn';
+      b2.textContent = '確認';
+      b2.setAttribute('data-act', 'hon-daily');
+      b2.setAttribute('data-p', p);
+      tr2.cells[7].appendChild(b2);
+      tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
+      dtb.appendChild(tr2);
+    });
+    document.querySelectorAll('.h-nr').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!db.supply[pr]) return;
+        db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
+        if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
+        saveDb();
+        renderNishi();
+        renderHonbu();
       });
     });
-    dp.forEach(function (p) {
-      var old = byName[p];
-      var c = old && old.consumed !== '' && old.consumed != null ? parseFloat(old.consumed) : 0;
-      if (isNaN(c)) c = 0;
-      var st = old && old.stock !== '' && old.stock != null ? parseFloat(old.stock) : null;
-      var rep = old && old.replenish !== '' && old.replenish != null ? String(old.replenish) : '';
-      u.items.push({
-        product: p,
-        consumed: c,
-        stock: isNaN(st) ? (old && old.stock != null ? String(old.stock) : '') : st,
-        replenish: rep,
-        _auto: false
+    document.querySelectorAll('.h-sr').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!db.supply[pr]) return;
+        db.supply[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
+        if (isNaN(db.supply[pr].sokoReplenish)) db.supply[pr].sokoReplenish = 0;
+        saveDb();
+        renderHonbu();
+      });
+    });
+    document.querySelectorAll('.h-dv').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!db.daily[pr]) return;
+        db.daily[pr].deliveryCount = inp.value === '' ? 0 : parseFloat(inp.value);
+        if (isNaN(db.daily[pr].deliveryCount)) db.daily[pr].deliveryCount = 0;
+        saveDb();
+        renderHonbu();
+      });
+    });
+    document.querySelectorAll('.h-mi').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!db.daily[pr]) return;
+        db.daily[pr].minamiIssued = inp.value === '' ? 0 : parseFloat(inp.value);
+        if (isNaN(db.daily[pr].minamiIssued)) db.daily[pr].minamiIssued = 0;
+        saveDb();
+        renderHonbu();
+      });
+    });
+    document.querySelectorAll('.h-dsr').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!db.daily[pr]) return;
+        db.daily[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
+        if (isNaN(db.daily[pr].sokoReplenish)) db.daily[pr].sokoReplenish = 0;
+        saveDb();
+        renderHonbu();
       });
     });
   }
 
-  function renderUnitTable(unit) {
-    syncItemsFromState(unit);
-    var u = db[unit];
-    var w = mondayForUnit(unit);
-    var omuId = unit === 'nishi' ? 'nishi-omu' : 'minami-omu';
-    var dlyId = unit === 'nishi' ? 'nishi-daily' : 'minami-daily';
-    var wlab = unit === 'nishi' ? 'nishi-week-label' : 'minami-week-label';
-    var meta = unit === 'nishi' ? 'nishi-meta' : 'minami-meta';
-    document.getElementById(wlab).textContent = weekRangeLabel(w);
-    var last = u.sender && u.sentAt ? '前回送信: ' + u.sender + ' ' + u.sentAt : '前回送信: なし';
-    document.getElementById(meta).textContent = last + ' ｜ 週 ' + formatDate(w);
+  function doHonbuPatConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    ensureProductRows();
+    var s = db.supply[p];
+    var a = s.nishiReplenish > 0 ? s.nishiReplenish : 0;
+    var b = s.sokoReplenish > 0 ? s.sokoReplenish : 0;
+    if (a > 0) { s.cumeWestTransfer = (s.cumeWestTransfer || 0) + a; s.nishiReplenish = 0; s.nishiConfirmed = true; }
+    if (b > 0) { s.cumeSokoInbound = (s.cumeSokoInbound || 0) + b; s.sokoReplenish = 0; s.sokoConfirmed = true; }
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS()
+      .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・パット確認）'; });
+  }
 
-    var omu = document.getElementById(omuId);
-    var dly = document.getElementById(dlyId);
-    omu.innerHTML = '';
-    dly.innerHTML = '';
-    u.items.forEach(function (it) {
-      var th = getThreshold(it.product);
-      var stNum = it.stock === '' || it.stock == null ? null : parseFloat(it.stock);
-      var stt = statusFromStock(stNum, th);
+  function doHonbuDailyConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var d0 = db.daily[p];
+    var b = d0.sokoReplenish > 0 ? d0.sokoReplenish : 0;
+    if (b > 0) { d0.cumeSokoInbound = (d0.cumeSokoInbound || 0) + b; d0.sokoReplenish = 0; d0.sokoConfirmed = true; }
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS()
+      .then(function () { renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・日用品確認）'; });
+  }
+
+  function renderNishi() {
+    ensureProductRows();
+    var w = weekMonday;
+    document.getElementById('n-week-label').textContent = ymd(w) + ' 〜 ' + ymd(addDays(w, 6)) + '（月〜日）';
+    var ptb = document.getElementById('n-pat-tbody');
+    var dtb = document.getElementById('n-daily-tbody');
+    ptb.innerHTML = '';
+    dtb.innerHTML = '';
+    var sumN = sumSuppliesInWeek(LS_KAIGO_NISHI, db.settings.supplyProducts, w);
+
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      var wk = patStockNishi(p);
+      var stN = statusFromSokoStock(p);
       var tr = document.createElement('tr');
-      if (it._auto) {
-        tr.className = 'read-row';
-        tr.innerHTML =
-          '<td></td><td class="num"></td><td class="num"><input type="number" step="any" class="i-stock" data-p="" /></td><td class="num"><input type="number" step="any" class="i-rep" data-p="" /></td><td class="st"></td>';
-        tr.cells[0].textContent = it.product;
-        tr.cells[1].textContent = it.consumed;
-        tr.querySelector('.i-stock').value = it.stock === '' ? '' : it.stock;
-        tr.querySelector('.i-rep').value = it.replenish || '';
-        tr.querySelector('.i-stock').setAttribute('data-p', it.product);
-        tr.querySelector('.i-rep').setAttribute('data-p', it.product);
-        tr.cells[1].setAttribute('title', '介護記録の自動集計（編集不可）');
-        tr.querySelector('.st').innerHTML = '<span class="' + badgeClass(stt.key) + '">' + stt.label + '</span>';
-        omu.appendChild(tr);
-      } else {
-        tr.innerHTML =
-          '<td></td><td class="num"><input type="number" step="any" class="i-con" data-p="" /></td><td class="num"><input type="number" step="any" class="i-stock" data-p="" /></td><td class="num"><input type="number" step="any" class="i-rep" data-p="" /></td><td class="st"></td>';
-        tr.cells[0].textContent = it.product;
-        tr.querySelector('.i-con').value = (it.consumed == null || it.consumed === '') ? '' : String(it.consumed);
-        tr.querySelector('.i-con').setAttribute('data-p', it.product);
-        tr.querySelector('.i-stock').value = it.stock === '' ? '' : it.stock;
-        tr.querySelector('.i-rep').value = it.replenish || '';
-        tr.querySelector('.i-stock').setAttribute('data-p', it.product);
-        tr.querySelector('.i-rep').setAttribute('data-p', it.product);
-        tr.querySelector('.st').innerHTML = '<span class="' + badgeClass(stt.key) + '">' + stt.label + '</span>';
-        dly.appendChild(tr);
-      }
+      tr.innerHTML = '<td></td><td class="num"></td><td class="num"></td><td></td><td></td><td></td>';
+      tr.cells[0].textContent = p;
+      tr.cells[1].textContent = String(sumN[p] != null ? sumN[p] : 0);
+      tr.cells[2].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
+      if (s.nishiReplenish > 0) {
+        tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個';
+      } else { tr.cells[3].textContent = '—'; }
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn';
+      btn.textContent = '確認';
+      btn.setAttribute('data-act', 'n-pat');
+      btn.setAttribute('data-p', p);
+      tr.cells[4].appendChild(btn);
+      tr.cells[5].innerHTML = '<span class="' + badgeClass(stN.k) + '">' + stN.label + '</span>';
+      ptb.appendChild(tr);
     });
-    if (!u.items.length) {
-      omu.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b">品目を設定に登録してください。</td></tr>';
-    }
 
-    function wireInputs(root, cls, field) {
-      var ins = root.querySelectorAll(cls);
-      for (var i = 0; i < ins.length; i++) {
-        (function (inp) {
-          inp.addEventListener('input', function () {
-            var p = inp.getAttribute('data-p');
-            for (var j = 0; j < u.items.length; j++) {
-              if (u.items[j].product === p) {
-                if (field === 'consumed') u.items[j].consumed = inp.value === '' ? 0 : parseFloat(inp.value);
-                else u.items[j][field] = inp.value;
-                if (isNaN(u.items[j].consumed)) u.items[j].consumed = 0;
-                break;
-              }
-            }
-            scheduleSave();
-            var tr = inp.closest('tr');
-            if (tr) {
-              var st = tr.querySelector('.st');
-              if (st) {
-                var p2 = inp.getAttribute('data-p');
-                var it2 = u.items.filter(function (x) { return x.product === p2; })[0];
-                if (it2) {
-                  var tnum = it2.stock === '' || it2.stock == null ? null : parseFloat(it2.stock);
-                  var tt = statusFromStock(tnum, getThreshold(p2));
-                  st.innerHTML = '<span class="' + badgeClass(tt.key) + '">' + tt.label + '</span>';
-                }
-              }
-            }
-          });
-        })(ins[i]);
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var d0 = db.daily[p];
+      var tr2 = document.createElement('tr');
+      tr2.innerHTML = '<td></td><td></td><td class="num"></td><td></td><td></td>';
+      tr2.cells[0].textContent = p;
+      var sel = document.createElement('select');
+      sel.setAttribute('data-p', p);
+      for (var o = 0; o <= 30; o++) {
+        var op = document.createElement('option');
+        op.value = o;
+        op.textContent = o;
+        if (d0.nishiOrder === o) op.selected = true;
+        sel.appendChild(op);
       }
-    }
-    var rootO = omu.parentElement;
-    var rootD = dly.parentElement;
-    wireInputs(rootO, '.i-stock', 'stock');
-    wireInputs(rootO, '.i-rep', 'replenish');
-    wireInputs(rootD, '.i-con', 'consumed');
-    wireInputs(rootD, '.i-stock', 'stock');
-    wireInputs(rootD, '.i-rep', 'replenish');
+      tr2.cells[1].appendChild(sel);
+      tr2.cells[2].textContent = d0.nishiOrderDate || '—';
+      tr2.cells[3].innerHTML = '';
+      var b1 = document.createElement('button');
+      b1.className = 'btn';
+      b1.textContent = '発注';
+      b1.setAttribute('data-act', 'n-ord');
+      b1.setAttribute('data-p', p);
+      var b2 = document.createElement('button');
+      b2.className = 'btn btn-ghost';
+      b2.textContent = 'リセット';
+      b2.setAttribute('data-act', 'n-daily-reset');
+      b2.setAttribute('data-p', p);
+      tr2.cells[3].appendChild(b1);
+      tr2.cells[3].appendChild(document.createTextNode(' '));
+      tr2.cells[3].appendChild(b2);
+      if (d0.nishiOrder > 0) {
+        tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>';
+      } else { tr2.cells[4].textContent = '—'; }
+      dtb.appendChild(tr2);
+    });
   }
 
-  function setSenderField(unit) {
-    var id = unit === 'nishi' ? 'nishi-sender' : 'minami-sender';
-    document.getElementById(id).value = db[unit].sender || '';
+  function doNishiPatConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名（本部上部）を入力してください。'); return; }
+    if (!db.supply[p]) return;
+    var s = db.supply[p];
+    if (s.nishiReplenish > 0) {
+      s.cumeWestTransfer = (s.cumeWestTransfer || 0) + s.nishiReplenish;
+      s.nishiReplenish = 0;
+    }
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット確認）'; });
   }
 
-  function bindUnit(unit) {
-    var pre = unit === 'nishi' ? 'nishi' : 'minami';
-    document.getElementById(pre + '-sender').addEventListener('input', function (e) {
-      db[unit].sender = e.target.value;
-      saveDb();
-      saveUnitKey(unit);
-    });
-    document.getElementById(pre + '-week-prev').addEventListener('click', function () {
-      var m = addDays(mondayForUnit(unit), -7);
-      setMonday(unit, m);
-      renderUnitTable(unit);
-    });
-    document.getElementById(pre + '-week-next').addEventListener('click', function () {
-      var m = addDays(mondayForUnit(unit), 7);
-      setMonday(unit, m);
-      renderUnitTable(unit);
-    });
-    document.getElementById(pre + '-send').addEventListener('click', function () {
-      var ok = document.getElementById(pre + '-ok');
-      var err = document.getElementById(pre + '-err');
-      ok.hidden = true;
-      err.hidden = true;
-      var sender = (db[unit].sender || '').trim();
-      if (!sender) {
-        err.textContent = '担当者名を入力してください。';
-        err.hidden = false;
-        return;
-      }
-      syncItemsFromState(unit);
-      var now = new Date();
-      var sentAt = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' +
-        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-      var items = db[unit].items.map(function (it) {
-        var stNum = it.stock === '' || it.stock == null ? null : parseFloat(it.stock);
-        var t = getThreshold(it.product);
-        var s = statusFromStock(stNum, t);
-        return {
-          product: it.product,
-          consumed: it._auto ? it.consumed : (isNaN(parseFloat(it.consumed)) ? 0 : parseFloat(it.consumed)),
-          stock: it.stock,
-          replenish: it.replenish,
-          status: s.key === 'danger' ? '緊急' : (s.key === 'warn' ? '要補充' : '正常')
-        };
-      });
-      var payload = {
-        token: TOKEN,
-        unit: unit,
-        sender: sender,
-        sentAt: sentAt,
-        items: items
-      };
-      fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+  function doNishiOrder(p, qty) {
+    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    db.daily[p].nishiOrder = parseInt(qty, 10) || 0;
+    db.daily[p].nishiOrderDate = ymd(new Date());
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+  }
+
+  function doNishiDailyReset(p) {
+    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (db.daily[p]) { db.daily[p].nishiOrder = 0; db.daily[p].nishiOrderDate = ''; }
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+  }
+
+  document.getElementById('panel-honbu').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
+  });
+  document.getElementById('panel-nishi').addEventListener('change', function (e) {
+    if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
+      if (!getSender()) { e.target.value = 0; alert('操作者名（本部上部）を入力してから発注数を選んでください'); return; }
+      doNishiOrder(e.target.getAttribute('data-p'), e.target.value);
+    }
+  });
+  document.getElementById('panel-nishi').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
+    if (t.getAttribute('data-act') === 'n-daily-reset') { doNishiDailyReset(t.getAttribute('data-p')); }
+  });
+
+  document.getElementById('n-week-prev').addEventListener('click', function () {
+    weekMonday = addDays(weekMonday, -7);
+    try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
+    renderNishi();
+  });
+  document.getElementById('n-week-next').addEventListener('click', function () {
+    weekMonday = addDays(weekMonday, 7);
+    try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
+    renderNishi();
+  });
+
+  function activateTab(n) {
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === n); });
+    document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-panel') === n); });
+    if (n === 'honbu') renderHonbu();
+    if (n === 'nishi') renderNishi();
+    if (n === 'settei') renderSettingsFull();
+  }
+  document.querySelectorAll('.tab-btn').forEach(function (b) { b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); }); });
+
+  document.getElementById('btn-sync-get').addEventListener('click', function () {
+    var el = document.getElementById('honbu-err');
+    el.hidden = true;
+    getGAS()
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var o = parseGas(t);
+        var body = resolveGASBody(o);
+        mergeFromServer(body);
+        if (o && o.lastSynced) db.lastSynced = o.lastSynced;
+        if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
+        if (body && body.lastSynced) db.lastSynced = body.lastSynced;
+        if (body && body.lastSyncedBy) db.lastSyncedBy = body.lastSyncedBy;
+        saveDb();
+        renderStamp();
+        renderHonbu();
+        document.getElementById('honbu-info').textContent = 'GAS から取り込み: ' + nowStamp();
       })
-        .then(function (r) { return r.text(); })
-        .then(function (t) {
-          var j = null;
-          try { j = JSON.parse(t); } catch (e) { j = { ok: true, raw: t }; }
-          if (j && j.ok === false) throw new Error(j.error || t);
-          db[unit].sentAt = sentAt;
-          db[unit].sender = sender;
-          saveDb();
-          saveUnitKey(unit);
-          ok.textContent = '送信しました（' + sentAt + ' ' + sender + '）';
-          ok.hidden = false;
-          setSenderField(unit);
-          document.getElementById(pre + '-meta').textContent = '前回送信: ' + sender + ' ' + sentAt + ' ｜ 週 ' + formatDate(mondayForUnit(unit));
-        })
-        .catch(function (e) {
-          err.textContent = '送信失敗: ' + (e && e.message ? e.message : e);
-          err.hidden = false;
-        });
-    });
-  }
+      .catch(function (e) { el.textContent = String(e); el.hidden = false; });
+  });
 
-  // --- 設定
-  function renderSettings() {
-    document.getElementById('set-facility').value = db.settings.facilityName;
-    document.getElementById('set-gas-url').textContent = GAS_URL;
-    document.getElementById('set-gas-token').textContent = TOKEN;
-    function fillList(ulId, arr, isTh) {
-      var ul = document.getElementById(ulId);
-      ul.innerHTML = '';
-      for (var i = 0; i < arr.length; i++) {
-        (function (ix) {
-          var name = arr[ix];
-          var li = document.createElement('li');
-          if (isTh) {
-            var th0 = getThreshold(name);
-            li.innerHTML =
-              '<span class="name"></span>' +
-              '<input type="number" class="t-d" step="any" style="width:4rem" />' +
-              '<input type="number" class="t-w" step="any" style="width:4rem" />' +
-              '<span class="mini"></span>';
-            li.querySelector('.name').textContent = name;
-            li.querySelector('.t-d').value = th0.danger != null && !isNaN(th0.danger) ? th0.danger : '';
-            li.querySelector('.t-w').value = th0.warn != null && !isNaN(th0.warn) ? th0.warn : '';
-            li.querySelector('.t-d').addEventListener('input', function (e) {
-              if (!db.settings.thresholds[name]) db.settings.thresholds[name] = {};
-              var v = e.target.value;
-              db.settings.thresholds[name].danger = v === '' ? null : v;
-              saveDb();
-            });
-            li.querySelector('.t-w').addEventListener('input', function (e) {
-              if (!db.settings.thresholds[name]) db.settings.thresholds[name] = {};
-              var v = e.target.value;
-              db.settings.thresholds[name].warn = v === '' ? null : v;
-              saveDb();
-            });
-            ul.appendChild(li);
-            return;
-          }
-          li.innerHTML = '<span class="name"></span><span class="mini"></span>';
-          li.querySelector('.name').textContent = name;
-          var mini = li.querySelector('.mini');
-          if (ix > 0) {
-            var bUp = document.createElement('button');
-            bUp.type = 'button';
-            bUp.className = 'btn btn-ghost';
-            bUp.textContent = '↑';
-            bUp.addEventListener('click', function () {
-              var t = arr[ix];
-              arr[ix] = arr[ix - 1];
-              arr[ix - 1] = t;
-              saveDb();
-              renderSettings();
-              renderUnitTable('nishi');
-              renderUnitTable('minami');
-            });
-            mini.appendChild(bUp);
-          }
-          if (ix < arr.length - 1) {
-            var bDn = document.createElement('button');
-            bDn.type = 'button';
-            bDn.className = 'btn btn-ghost';
-            bDn.textContent = '↓';
-            bDn.addEventListener('click', function () {
-              var t = arr[ix];
-              arr[ix] = arr[ix + 1];
-              arr[ix + 1] = t;
-              saveDb();
-              renderSettings();
-              renderUnitTable('nishi');
-              renderUnitTable('minami');
-            });
-            mini.appendChild(bDn);
-          }
-          var bDel = document.createElement('button');
-          bDel.type = 'button';
-          bDel.className = 'btn btn-ghost';
-          bDel.textContent = '削除';
-          bDel.addEventListener('click', function () {
-            arr.splice(ix, 1);
-            saveDb();
-            renderSettings();
-            renderUnitTable('nishi');
-            renderUnitTable('minami');
-          });
-          mini.appendChild(bDel);
-          ul.appendChild(li);
-        })(i);
-      }
+  function onSettingsInput(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('s-n')) {
+      var k = e.target.getAttribute('data-k');
+      var p = e.target.getAttribute('data-p');
+      var f = e.target.getAttribute('data-f');
+      if (!k || !p || !f) return;
+      if (!db.settings[k][p]) db.settings[k][p] = defStockRow();
+      db.settings[k][p][f] = e.target.value === '' ? 0 : parseFloat(e.target.value);
+      if (isNaN(db.settings[k][p][f])) db.settings[k][p][f] = 0;
+      saveDb();
+      renderHonbu();
+      renderNishi();
     }
-    fillList('set-list-supply', db.settings.supplyProducts, false);
-    fillList('set-list-daily', db.settings.dailyProducts, false);
-    var thNames = [].concat(db.settings.supplyProducts, db.settings.dailyProducts);
-    var seen = {};
-    thNames = thNames.filter(function (n) {
-      if (seen[n]) return false;
-      seen[n] = true;
-      return true;
-    });
-    fillList('set-thresholds', thNames, true);
+  }
+  (function bindSettingsInputOnce() {
+    var r = document.getElementById('settings-root');
+    r.addEventListener('input', onSettingsInput);
+  })();
+
+  function renderSettingsFull() {
+    var root = document.getElementById('settings-root');
+    ensureProductRows();
+    var html = '';
+    html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
+    html += '<h2>パット品目 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
+    html += '<h2>日用品 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
+    html += '<h2>西 パット（初期・しきい値）</h2><div class="table-wrap" id="tb-ni"></div>';
+    html += '<h2>倉庫 パット</h2><div class="table-wrap" id="tb-sp"></div>';
+    html += '<h2>倉庫 日用品</h2><div class="table-wrap" id="tb-sd"></div>';
+    html += '<h2>GAS</h2><p class="meta-line">' + escapeText(GAS_URL) + '</p><p class="meta-line">' + escapeText(TOKEN) + '</p>';
+    root.innerHTML = html;
+    (function () {
+      function fillSt(tableId, arr, nskey) {
+        var d = document.getElementById(tableId);
+        var t = '<table><thead><tr><th>品目</th><th>初期</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
+        arr.forEach(function (p) {
+          var o = (db.settings[nskey] && db.settings[nskey][p]) || defStockRow();
+          t += '<tr><td>' + escapeText(p) + '</td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="initial" type="number" value="' + o.initial + '"/></td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
+        });
+        t += '</tbody></table>';
+        d.innerHTML = t;
+      }
+      function fillList(id, which) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var arr = which === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
+        el.innerHTML = arr.map(function (p, i) {
+          return '<li><span class="nm">' + escapeText(p) + '</span>' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="-1" title="上へ">↑</button>' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="1" title="下へ">↓</button>' +
+            '<button type="button" class="btn btn-ghost s-rm" data-w="' + which + '" data-ix="' + i + '">削除</button></li>';
+        }).join('');
+      }
+      fillList('l-p', 'p');
+      fillList('l-d', 'd');
+      fillSt('tb-ni', db.settings.supplyProducts, 'nishiStock');
+      fillSt('tb-sp', db.settings.supplyProducts, 'sokoStock');
+      fillSt('tb-sd', db.settings.dailyProducts, 'sokoStock');
+    })();
+    var fac = document.getElementById('s-fac2');
+    if (fac) {
+      fac.oninput = function (e) {
+        db.settings.facilityName = e.target.value;
+        saveDb();
+        var ft = document.getElementById('facilityTitle');
+        if (ft) ft.textContent = e.target.value || '在庫管理';
+      };
+    }
+    var addP = document.getElementById('add-p');
+    if (addP) {
+      addP.onclick = function () {
+        var v = (document.getElementById('new-p').value || '').trim();
+        if (!v || db.settings.supplyProducts.indexOf(v) >= 0) return;
+        db.settings.supplyProducts.push(v);
+        ensureProductRows();
+        saveDb();
+        renderSettingsFull();
+        renderHonbu();
+        renderNishi();
+      };
+    }
+    var addD = document.getElementById('add-d');
+    if (addD) {
+      addD.onclick = function () {
+        var v2 = (document.getElementById('new-d').value || '').trim();
+        if (!v2 || db.settings.dailyProducts.indexOf(v2) >= 0) return;
+        db.settings.dailyProducts.push(v2);
+        ensureProductRows();
+        saveDb();
+        renderSettingsFull();
+        renderHonbu();
+        renderNishi();
+      };
+    }
+    var im = document.getElementById('imp2');
+    if (im) im.onclick = doImport;
+    var lp = document.getElementById('l-p');
+    function listRowClick(e) {
+        var t = e.target;
+        if (!t || !t.classList) return;
+        if (!t.classList.contains('s-mv') && !t.classList.contains('s-rm')) return;
+        if (t.classList.contains('s-mv')) {
+          var w0 = t.getAttribute('data-w');
+          var ix0 = parseInt(t.getAttribute('data-ix'), 10);
+          var d0 = parseInt(t.getAttribute('data-d'), 10);
+          var a0 = w0 === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
+          var nix = ix0 + d0;
+          if (nix < 0 || nix >= a0.length) return;
+          var u = a0[ix0];
+          a0[ix0] = a0[nix];
+          a0[nix] = u;
+          saveDb();
+          renderSettingsFull();
+        }
+        if (t.classList.contains('s-rm')) {
+          var w1 = t.getAttribute('data-w');
+          var ix1 = parseInt(t.getAttribute('data-ix'), 10);
+          var a1 = w1 === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
+          var pr = a1.splice(ix1, 1)[0];
+          if (w1 === 'p') { delete db.supply[pr]; }
+          else { delete db.daily[pr]; }
+          saveDb();
+          renderSettingsFull();
+          renderHonbu();
+          renderNishi();
+        }
+    }
+    var ld = document.getElementById('l-d');
+    if (lp) lp.onclick = listRowClick;
+    if (ld) ld.onclick = listRowClick;
   }
 
-  document.getElementById('set-facility').addEventListener('input', function (e) {
-    db.settings.facilityName = e.target.value;
-    document.getElementById('facilityTitle').textContent = e.target.value || '在庫管理';
-    document.getElementById('facilitySub').textContent = '介護施設 消耗品';
-    saveDb();
-  });
-
-  document.getElementById('set-add-supply').addEventListener('click', function () {
-    var v = document.getElementById('set-new-supply').value.trim();
-    if (!v) return;
-    if (db.settings.supplyProducts.indexOf(v) >= 0) return;
-    db.settings.supplyProducts.push(v);
-    document.getElementById('set-new-supply').value = '';
-    saveDb();
-    renderSettings();
-    renderUnitTable('nishi');
-    renderUnitTable('minami');
-  });
-  document.getElementById('set-add-daily').addEventListener('click', function () {
-    var v = document.getElementById('set-new-daily').value.trim();
-    if (!v) return;
-    if (db.settings.dailyProducts.indexOf(v) >= 0) return;
-    db.settings.dailyProducts.push(v);
-    document.getElementById('set-new-daily').value = '';
-    saveDb();
-    renderSettings();
-    renderUnitTable('nishi');
-    renderUnitTable('minami');
-  });
-  document.getElementById('set-import-supply').addEventListener('click', function () {
+  function doImport() {
     var found = null;
     [LS_KAIGO_NISHI, LS_KAIGO_MINAMI].forEach(function (k) {
+      if (found && found.length) return;
       try {
         var raw = localStorage.getItem(k);
         if (!raw) return;
         var j = JSON.parse(raw);
-        var candidates = [
+        var cands = [
           j && j.settings && j.settings.supplyProducts,
-          j && j.db && j.db.settings && j.db.settings.supplyProducts,
-          j && j.db && j.db.supplyProducts,
-          j && j.supplyProducts
+          j && j.db && j.db.settings && j.db.settings && j.db.settings.supplyProducts,
+          j && j.db && j.db.settings && j.db.settings.supplyProducts
         ];
-        for (var i = 0; i < candidates.length; i++) {
-          var pr = candidates[i];
-          if (Array.isArray(pr) && pr.length) {
-            found = pr.map(String);
-            break;
-          }
+        for (var i = 0; i < cands.length; i++) {
+          if (Array.isArray(cands[i]) && cands[i].length) { found = cands[i].map(String); return; }
         }
       } catch (e) {}
     });
     if (!found || !found.length) {
-      alert('介護記録アプリの localStorage から品目を取得できませんでした。同じブラウザ・ドメインで介護記録を開いているか確認してください。');
+      alert('介護記録 localStorage(kaigo_nishi / minami) から品目を取得できません。');
       return;
     }
-    var merge = db.settings.supplyProducts.slice();
-    found.forEach(function (p) {
-      if (merge.indexOf(p) < 0) merge.push(p);
-    });
-    db.settings.supplyProducts = merge;
+    found.forEach(function (p) { if (db.settings.supplyProducts.indexOf(p) < 0) db.settings.supplyProducts.push(p); });
+    ensureProductRows();
     saveDb();
-    renderSettings();
-    renderUnitTable('nishi');
-    renderUnitTable('minami');
-  });
-
-  // --- tabs
-  function activateTab(name) {
-    var btns = document.querySelectorAll('.tab-btn');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === name);
-    }
-    var panels = document.querySelectorAll('.panel');
-    for (var j = 0; j < panels.length; j++) {
-      panels[j].classList.toggle('active', panels[j].getAttribute('data-panel') === name);
-    }
-    if (name === 'honbu') fetchHq();
-    if (name === 'nishi') { renderUnitTable('nishi'); }
-    if (name === 'minami') { renderUnitTable('minami'); }
-    if (name === 'settei') { renderSettings(); }
-  }
-  document.querySelectorAll('.tab-btn').forEach(function (b) {
-    b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); });
-  });
-  ensureRefreshButtonEnabled();
-  document.getElementById('btn-refresh').addEventListener('click', function () {
-    ensureRefreshButtonEnabled();
-    fetchHq();
-  });
-
-  // 初期
-  function mergeLegacyUnit() {
-    try {
-      var n = localStorage.getItem(LS_NISHI);
-      if (n) {
-        var j = JSON.parse(n);
-        if (j && j.items && j.items.length) {
-          if (!db.nishi.items || !db.nishi.items.length) db.nishi = j;
-          else {
-            db.nishi.sender = j.sender != null ? j.sender : db.nishi.sender;
-            db.nishi.sentAt = j.sentAt != null ? j.sentAt : db.nishi.sentAt;
-            db.nishi.weekStart = j.weekStart != null ? j.weekStart : db.nishi.weekStart;
-            db.nishi.items = j.items;
-          }
-        } else {
-          if (j) {
-            if (j.sender) db.nishi.sender = j.sender;
-            if (j.sentAt) db.nishi.sentAt = j.sentAt;
-            if (j.weekStart) db.nishi.weekStart = j.weekStart;
-          }
-        }
-      }
-    } catch (e) {}
-    try {
-      var m = localStorage.getItem(LS_MINAMI);
-      if (m) {
-        var j2 = JSON.parse(m);
-        if (j2 && j2.items && j2.items.length) {
-          if (!db.minami.items || !db.minami.items.length) db.minami = j2;
-          else {
-            db.minami.sender = j2.sender != null ? j2.sender : db.minami.sender;
-            db.minami.sentAt = j2.sentAt != null ? j2.sentAt : db.minami.sentAt;
-            db.minami.weekStart = j2.weekStart != null ? j2.weekStart : db.minami.weekStart;
-            db.minami.items = j2.items;
-          }
-        } else {
-          if (j2) {
-            if (j2.sender) db.minami.sender = j2.sender;
-            if (j2.sentAt) db.minami.sentAt = j2.sentAt;
-            if (j2.weekStart) db.minami.weekStart = j2.weekStart;
-          }
-        }
-      }
-    } catch (e) {}
-    saveDb();
+    renderSettingsFull();
+    renderHonbu();
   }
 
-  mergeLegacyUnit();
-  document.getElementById('facilityTitle').textContent = db.settings.facilityName || '在庫管理';
-  setSenderField('nishi');
-  setSenderField('minami');
-  bindUnit('nishi');
-  bindUnit('minami');
-  renderHq();
-  fetchHq();
+  // Init
+  (function init() {
+    ensureProductRows();
+    if (!document.getElementById('global-sender').value) document.getElementById('global-sender').value = localStorage.getItem('zaiko_global_sender') || '';
+    document.getElementById('global-sender').addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', document.getElementById('global-sender').value); } catch (e) {} });
+    document.getElementById('facilityTitle').textContent = db.settings.facilityName;
+    renderStamp();
+    renderHonbu();
+    getGAS()
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var o = parseGas(t);
+        var body = resolveGASBody(o);
+        mergeFromServer(body);
+        if (o && o.lastSynced) db.lastSynced = o.lastSynced;
+        if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
+        if (body && body.lastSynced) db.lastSynced = body.lastSynced;
+        if (body && body.lastSyncedBy) db.lastSyncedBy = body.lastSyncedBy;
+        saveDb();
+        renderStamp();
+        renderHonbu();
+        renderNishi();
+      })
+      .catch(function () { renderNishi(); });
+  })();
 })();
   </script>
 </body>
