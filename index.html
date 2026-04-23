@@ -573,7 +573,7 @@
   }
 
   function payloadForGAS() {
-    return {
+    var payload = {
       token: token,
       sender: getSender() || '未記入',
       sentAt: nowStamp(),
@@ -581,6 +581,12 @@
       daily: db.daily,
       settings: db.settings
     };
+    var toilet = payload.daily && payload.daily['トイレットペーパー'];
+    gasLog('POST daily トイレットペーパー', toilet ? {
+      nishiOrder: toilet.nishiOrder,
+      nishiOrderDate: toilet.nishiOrderDate
+    } : 'なし');
+    return payload;
   }
 
   function parseGas(text) {
@@ -691,6 +697,7 @@
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
       var mAll = allM[p] != null ? allM[p] : 0;
+      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedAll: nWeek, minamiConsumedAll: mAll });
       var stH = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML =
