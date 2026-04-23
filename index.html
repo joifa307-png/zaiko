@@ -631,6 +631,10 @@
   }
 
   function postGAS() {
+    console.log('postGAS直前 db.daily トイレットペーパー:', db.daily && db.daily['トイレットペーパー'] ? {
+      nishiOrder: db.daily['トイレットペーパー'].nishiOrder,
+      nishiOrderDate: db.daily['トイレットペーパー'].nishiOrderDate
+    } : 'なし');
     var payload = payloadForGAS();
     gasLog('POST 送信', payload);
     return fetch(gasUrl, {
@@ -841,6 +845,9 @@
     if (!sen) { alert('操作者名を入力してください。'); return; }
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
+    if (p === 'トイレットペーパー') {
+      console.log('doHonbuDailyConfirm前 トイレットペーパー:', { nishiOrder: d0.nishiOrder, nishiOrderDate: d0.nishiOrderDate });
+    }
     var b = d0.sokoReplenish > 0 ? d0.sokoReplenish : 0;
     if (b > 0) { d0.cumeSokoInbound = (d0.cumeSokoInbound || 0) + b; d0.sokoReplenish = 0; d0.sokoConfirmed = true; }
     db.lastSynced = nowStamp();
@@ -942,6 +949,9 @@
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     db.daily[p].nishiOrder = parseInt(qty, 10) || 0;
     db.daily[p].nishiOrderDate = ymd(new Date());
+    if (p === 'トイレットペーパー') {
+      console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate });
+    }
     saveDb();
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
@@ -949,6 +959,9 @@
   function doNishiDailyReset(p) {
     if (!getSender()) { alert('操作者名を上部に入力'); return; }
     if (db.daily[p]) { db.daily[p].nishiOrder = 0; db.daily[p].nishiOrderDate = ''; }
+    if (p === 'トイレットペーパー') {
+      console.log('doNishiDailyReset実行 トイレットペーパー:', db.daily[p] ? { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate } : 'なし');
+    }
     saveDb();
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
