@@ -259,6 +259,7 @@
   var DEFAULT_TOKEN = 'KAIGO_ZAIKO_2025';
   var LS_GAS_URL = 'zaiko_gas_url';
   var LS_GAS_TOKEN = 'zaiko_gas_token';
+  var LS_POST_ALERT_DEBUG = 'zaiko_post_alert_debug';
   var gasUrl = DEFAULT_GAS_URL;
   var token = DEFAULT_TOKEN;
   var LS_KEY = 'zaiko_db';
@@ -291,6 +292,9 @@
     if (tEl) tEl.value = token;
   }
   loadGasEndpoints();
+  function isPostAlertDebugOn() {
+    try { return localStorage.getItem(LS_POST_ALERT_DEBUG) === '1'; } catch (e) { return false; }
+  }
   function gasLog(label, a, b) {
     if (!GAS_DEBUG) return;
     if (b !== undefined) {
@@ -655,8 +659,18 @@
         if (!x.ok) throw new Error('POST HTTP ' + x.status);
         return x.text;
       })
+      .then(function (text) {
+        if (isPostAlertDebugOn()) {
+          var s = text == null ? '' : String(text);
+          alert('送信成功: ' + s.slice(0, 200));
+        }
+        return text;
+      })
       .catch(function (err) {
         console.error('POST error:', err);
+        if (isPostAlertDebugOn()) {
+          alert('送信失敗: ' + String(err));
+        }
         throw err;
       });
   }
@@ -1057,7 +1071,9 @@
       '<p><label for="s-gas-token">トークン</label><br />' +
       '<input type="text" id="s-gas-token" autocomplete="off" style="width:100%;max-width:28rem" value="' + escapeAttr(token) + '" /></p>' +
       '<p><button type="button" class="btn" id="s-gas-save">保存</button> <span id="s-gas-msg" class="ok-msg"></span></p>' +
-      '<p class="meta-line">未入力で保存すると、上記の初期値（フォールバック）が使われます。</p>';
+      '<p class="meta-line">未入力で保存すると、上記の初期値（フォールバック）が使われます。</p>' +
+      '<h2>デバッグ</h2>' +
+      '<p class="meta-line"><label><input type="checkbox" id="s-post-alert-debug" ' + (isPostAlertDebugOn() ? 'checked' : '') + ' /> POST結果をアラート表示（Safari等でコンソールが開けない端末向け）</label></p>';
     root.innerHTML = html;
     (function () {
       function fillSt(tableId, arr, nskey) {
@@ -1134,6 +1150,12 @@
         var msg = document.getElementById('s-gas-msg');
         if (msg) msg.textContent = 'GAS URL・トークンを保存しました。';
         setTimeout(function () { if (msg) msg.textContent = ''; }, 3500);
+      };
+    }
+    var postAlertDbg = document.getElementById('s-post-alert-debug');
+    if (postAlertDbg) {
+      postAlertDbg.onchange = function () {
+        try { localStorage.setItem(LS_POST_ALERT_DEBUG, postAlertDbg.checked ? '1' : '0'); } catch (e) {}
       };
     }
     var lp = document.getElementById('l-p');
