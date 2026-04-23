@@ -484,7 +484,20 @@
   }
 
   function ensureProductRows() {
-    db.settings.supplyProducts.forEach(function (p) {
+    if (!db.settings || typeof db.settings !== 'object') db.settings = {};
+    if (!Array.isArray(db.settings.supplyProducts) || db.settings.supplyProducts.length === 0) {
+      db.settings.supplyProducts = (DEFAULT_SUPPLY || []).slice();
+    }
+    if (!Array.isArray(db.settings.dailyProducts) || db.settings.dailyProducts.length === 0) {
+      db.settings.dailyProducts = (DEFAULT_DAILY || []).slice();
+    }
+    if (!db.settings.sokoStock || typeof db.settings.sokoStock !== 'object') db.settings.sokoStock = {};
+    if (!db.settings.nishiStock || typeof db.settings.nishiStock !== 'object') db.settings.nishiStock = {};
+    if (!db.supply || typeof db.supply !== 'object') db.supply = {};
+    if (!db.daily || typeof db.daily !== 'object') db.daily = {};
+
+    if (Array.isArray(db.settings.supplyProducts) && db.settings.supplyProducts.length > 0) {
+      db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       else {
         if (db.supply[p].cumeWestTransfer == null) db.supply[p].cumeWestTransfer = 0;
@@ -492,19 +505,25 @@
         if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
         if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
       }
-    });
-    db.settings.dailyProducts.forEach(function (p) {
+      });
+    }
+    if (Array.isArray(db.settings.dailyProducts) && db.settings.dailyProducts.length > 0) {
+      db.settings.dailyProducts.forEach(function (p) {
       if (!db.daily[p]) db.daily[p] = defDailyRow();
       else if (db.daily[p].cumeSokoInbound == null) db.daily[p].cumeSokoInbound = 0;
-    });
+      });
+    }
     [db.settings.supplyProducts, db.settings.dailyProducts].forEach(function (arr) {
+      if (!Array.isArray(arr) || arr.length === 0) return;
       arr.forEach(function (p) {
         if (!db.settings.sokoStock[p]) db.settings.sokoStock[p] = defStockRow();
       });
     });
-    db.settings.supplyProducts.forEach(function (p) {
-      if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
-    });
+    if (Array.isArray(db.settings.supplyProducts) && db.settings.supplyProducts.length > 0) {
+      db.settings.supplyProducts.forEach(function (p) {
+        if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
+      });
+    }
   }
 
   function patStockNishi(p) {
@@ -578,7 +597,7 @@
 
   function mergeFromServer(d) {
     if (!d || typeof d !== 'object') return;
-    if (d.settings && typeof d.settings === 'object') {
+    if (d.settings && typeof d.settings === 'object' && Object.keys(d.settings).length > 0) {
       db.settings = d.settings;
     }
     if (d.supply && typeof d.supply === 'object') {
