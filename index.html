@@ -1223,10 +1223,12 @@
     ensureProductRows();
     var html = '';
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
-    html += '<h2>パット品目（西/倉庫 在庫設定） <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2>' +
-      '<div class="slist-head"><span class="nm">品目</span><span style="width:4.5rem;text-align:center;">西 初期</span><span style="width:4.5rem;text-align:center;">西 要補充</span><span style="width:4.5rem;text-align:center;">西 緊急</span><span style="width:4.5rem;text-align:center;">倉庫 初期</span><span style="width:4.5rem;text-align:center;">倉庫 要補充</span><span style="width:4.5rem;text-align:center;">倉庫 緊急</span><span style="min-width:6rem;text-align:center;">順序/削除</span></div><ul id="l-p" class="slist"></ul>';
-    html += '<h2>日用品（西/倉庫 在庫設定） <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2>' +
-      '<div class="slist-head"><span class="nm">品目</span><span style="width:4.5rem;text-align:center;">西 初期</span><span style="width:4.5rem;text-align:center;">西 要補充</span><span style="width:4.5rem;text-align:center;">西 緊急</span><span style="width:4.5rem;text-align:center;">倉庫 初期</span><span style="width:4.5rem;text-align:center;">倉庫 要補充</span><span style="width:4.5rem;text-align:center;">倉庫 緊急</span><span style="min-width:6rem;text-align:center;">順序/削除</span></div><ul id="l-d" class="slist"></ul>';
+    html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
+    html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
+    html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
+    html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
+    html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
+    html += '<h2>4. 西（日用品在庫設定）</h2><div class="table-wrap" id="tb-nishi-d"></div>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -1238,20 +1240,25 @@
       '<p class="meta-line"><label><input type="checkbox" id="s-post-alert-debug" ' + (isPostAlertDebugOn() ? 'checked' : '') + ' /> POST結果をアラート表示（Safari等でコンソールが開けない端末向け）</label></p>';
     root.innerHTML = html;
     (function () {
+      function fillSt(tableId, arr, nskey) {
+        var d = document.getElementById(tableId);
+        var t = '<table><thead><tr><th>品目</th><th>初期</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
+        arr.forEach(function (p) {
+          var o = (db.settings[nskey] && db.settings[nskey][p]) || defStockRow();
+          t += '<tr><td>' + escapeText(p) + '</td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="initial" type="number" value="' + o.initial + '"/></td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
+            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
+        });
+        t += '</tbody></table>';
+        d.innerHTML = t;
+      }
       function fillList(id, which) {
         var el = document.getElementById(id);
         if (!el) return;
         var arr = which === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
         el.innerHTML = arr.map(function (p, i) {
-          var n = (db.settings.nishiStock && db.settings.nishiStock[p]) || defStockRow();
-          var s = (db.settings.sokoStock && db.settings.sokoStock[p]) || defStockRow();
           return '<li><span class="nm">' + escapeText(p) + '</span>' +
-            '<input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="initial" type="number" title="西 初期" placeholder="西初期" style="width:4.5rem" value="' + n.initial + '"/>' +
-            '<input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" title="西 要補充" placeholder="西要補充" style="width:4.5rem" value="' + n.warnAt + '"/>' +
-            '<input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" title="西 緊急" placeholder="西緊急" style="width:4.5rem" value="' + n.dangerAt + '"/>' +
-            '<input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="initial" type="number" title="倉庫 初期" placeholder="倉庫初期" style="width:4.5rem" value="' + s.initial + '"/>' +
-            '<input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" title="倉庫 要補充" placeholder="倉庫要補充" style="width:4.5rem" value="' + s.warnAt + '"/>' +
-            '<input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" title="倉庫 緊急" placeholder="倉庫緊急" style="width:4.5rem" value="' + s.dangerAt + '"/>' +
             '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="-1" title="上へ">↑</button>' +
             '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="1" title="下へ">↓</button>' +
             '<button type="button" class="btn btn-ghost s-rm" data-w="' + which + '" data-ix="' + i + '">削除</button></li>';
@@ -1259,6 +1266,10 @@
       }
       fillList('l-p', 'p');
       fillList('l-d', 'd');
+      fillSt('tb-soko-p', db.settings.supplyProducts, 'sokoStock');
+      fillSt('tb-soko-d', db.settings.dailyProducts, 'sokoStock');
+      fillSt('tb-nishi-p', db.settings.supplyProducts, 'nishiStock');
+      fillSt('tb-nishi-d', db.settings.dailyProducts, 'nishiStock');
     })();
     var fac = document.getElementById('s-fac2');
     if (fac) {
