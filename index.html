@@ -1134,12 +1134,21 @@
     if (db.daily[p]) {
       db.daily[p].nishiOrder = 0;
       db.daily[p].nishiOrderDate = '';
+      db.daily[p].deliveryCount = 0;
     }
     if (p === 'トイレットペーパー') {
       console.log('doNishiDailyReset実行 トイレットペーパー:', db.daily[p] ? { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate } : 'なし');
     }
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+    renderNishi();
+    renderHonbu();
+    return postGAS()
+      .then(function () { renderNishi(); renderHonbu(); })
+      .catch(function (e) {
+        renderNishi();
+        renderHonbu();
+        throw e;
+      });
   }
 
   function doNishiOrderAll() {
@@ -1172,7 +1181,8 @@
 
   document.getElementById('panel-honbu').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
-    var t = e.target;
+    var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+    if (!t) return;
     if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
   });
@@ -1186,7 +1196,8 @@
   });
   document.getElementById('panel-nishi').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
-    var t = e.target;
+    var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+    if (!t) return;
     if (t.getAttribute('data-act') === 'n-pat-order') { doNishiPatOrder(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
