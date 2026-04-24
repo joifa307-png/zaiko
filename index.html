@@ -580,15 +580,16 @@
       String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
   }
 
-  function payloadForGAS() {
+  function payloadForGAS(opts) {
+    var includeSettings = !!(opts && opts.includeSettings);
     var payload = {
       token: token,
       sender: getSender() || '未記入',
       sentAt: nowStamp(),
       supply: db.supply,
-      daily: db.daily,
-      settings: db.settings
+      daily: db.daily
     };
+    if (includeSettings) payload.settings = db.settings;
     var toilet = payload.daily && payload.daily['トイレットペーパー'];
     gasLog('POST daily トイレットペーパー', toilet ? {
       nishiOrder: toilet.nishiOrder,
@@ -638,12 +639,12 @@
     return o;
   }
 
-  function postGAS() {
+  function postGAS(opts) {
     console.log('postGAS直前 db.daily トイレットペーパー:', db.daily && db.daily['トイレットペーパー'] ? {
       nishiOrder: db.daily['トイレットペーパー'].nishiOrder,
       nishiOrderDate: db.daily['トイレットペーパー'].nishiOrderDate
     } : 'なし');
-    var payload = payloadForGAS();
+    var payload = payloadForGAS(opts);
     gasLog('POST 送信', payload);
     return fetch(gasUrl, {
       method: 'POST',
