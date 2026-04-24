@@ -807,13 +807,48 @@
       });
     });
     document.querySelectorAll('.h-dv').forEach(function (inp) {
-      inp.addEventListener('input', function () {
+      function syncDeliveryFromInp() {
         var pr = inp.getAttribute('data-p');
-        if (!db.daily[pr]) return;
+        if (!pr) return;
+        if (!db.daily[pr]) db.daily[pr] = defDailyRow();
         db.daily[pr].deliveryCount = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.daily[pr].deliveryCount)) db.daily[pr].deliveryCount = 0;
+      }
+      function postDeliveryCommit() {
+        var now = Date.now();
+        if (now - (inp._lastDdvGAS || 0) < 450) return;
+        inp._lastDdvGAS = now;
+        syncDeliveryFromInp();
+        var sen = getSender() || '未記入';
+        db.lastSynced = nowStamp();
+        db.lastSyncedBy = sen;
+        saveDb();
+        return postGAS()
+          .then(function () {
+            renderHonbu();
+            renderNishi();
+            var info = document.getElementById('honbu-info');
+            if (info) info.textContent = 'GAS 送信（本部・納品数）: ' + nowStamp();
+          });
+      }
+      var skipBlur = false;
+      inp.addEventListener('input', function () {
+        syncDeliveryFromInp();
         saveDb();
         renderHonbu();
+        renderNishi();
+      });
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          skipBlur = true;
+          postDeliveryCommit();
+          setTimeout(function () { skipBlur = false; }, 0);
+        }
+      });
+      inp.addEventListener('blur', function () {
+        if (skipBlur) return;
+        postDeliveryCommit();
       });
     });
     document.querySelectorAll('.h-mi').forEach(function (inp) {
@@ -864,11 +899,18 @@
     }
     var b = d0.sokoReplenish > 0 ? d0.sokoReplenish : 0;
     if (b > 0) { d0.cumeSokoInbound = (d0.cumeSokoInbound || 0) + b; d0.sokoReplenish = 0; d0.sokoConfirmed = true; }
+    d0.nishiOrder = 0;
+    d0.nishiOrderDate = '';
+    d0.deliveryCount = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
     return postGAS()
-      .then(function () { renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・日用品確認）'; });
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        document.getElementById('honbu-info').textContent = 'GAS 送信（本部・日用品確認）';
+      });
   }
 
   function renderNishi() {
@@ -936,9 +978,15 @@
       tr2.cells[3].appendChild(b1);
       tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(b2);
-      if (d0.nishiOrder > 0) {
-        tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>';
-      } else { tr2.cells[4].textContent = '—'; }
+      {
+        var dc = d0.deliveryCount != null && !isNaN(d0.deliveryCount) ? d0.deliveryCount : 0;
+        var no = d0.nishiOrder != null && !isNaN(d0.nishiOrder) ? d0.nishiOrder : 0;
+        if (dc > 0) {
+          tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>';
+        } else if (no > 0) {
+          tr2.cells[4].innerHTML = '<span class="badge badge-ok">発注済</span>';
+        } else { tr2.cells[4].textContent = '—'; }
+      }
       dtb.appendChild(tr2);
     });
   }
