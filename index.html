@@ -708,6 +708,29 @@
     }
   }
 
+  function findHonbuDailyTrByProduct(p) {
+    var tb = document.getElementById('honbu-daily-tbody');
+    if (!tb) return null;
+    var inps = tb.querySelectorAll('input.h-dv');
+    for (var i = 0; i < inps.length; i++) {
+      if (inps[i].getAttribute('data-p') === p) {
+        var tr = inps[i].closest('tr');
+        return tr || null;
+      }
+    }
+    return null;
+  }
+  function updateHonbuDailySokoForProduct(p) {
+    var tr = findHonbuDailyTrByProduct(p);
+    if (!tr) return;
+    ensureProductRows();
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var sk2 = dailySoko(p);
+    var stD = statusFromSokoStock(p);
+    if (tr.cells[5]) tr.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
+    if (tr.cells[8]) tr.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
+  }
+
   function renderHonbu() {
     ensureProductRows();
     var ptb = document.getElementById('honbu-pat-tbody');
@@ -833,9 +856,11 @@
       }
       var skipBlur = false;
       inp.addEventListener('input', function () {
+        var pr = inp.getAttribute('data-p');
+        if (!pr) return;
         syncDeliveryFromInp();
         saveDb();
-        renderHonbu();
+        updateHonbuDailySokoForProduct(pr);
         renderNishi();
       });
       inp.addEventListener('keydown', function (e) {
@@ -843,8 +868,11 @@
           e.preventDefault();
           skipBlur = true;
           postDeliveryCommit();
-          setTimeout(function () { skipBlur = false; }, 0);
+          setTimeout(function () { skipBlur = false; }, 100);
         }
+      });
+      inp.addEventListener('change', function () {
+        postDeliveryCommit();
       });
       inp.addEventListener('blur', function () {
         if (skipBlur) return;
@@ -959,7 +987,7 @@
         var op = document.createElement('option');
         op.value = o;
         op.textContent = o;
-        if (d0.nishiOrder === o) op.selected = true;
+        if (Number(d0.nishiOrder) === o) op.selected = true;
         sel.appendChild(op);
       }
       tr2.cells[1].appendChild(sel);
@@ -979,8 +1007,8 @@
       tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(b2);
       {
-        var dc = d0.deliveryCount != null && !isNaN(d0.deliveryCount) ? d0.deliveryCount : 0;
-        var no = d0.nishiOrder != null && !isNaN(d0.nishiOrder) ? d0.nishiOrder : 0;
+        var dc = Number(d0.deliveryCount) || 0;
+        var no = Number(d0.nishiOrder) || 0;
         if (dc > 0) {
           tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>';
         } else if (no > 0) {
