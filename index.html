@@ -559,7 +559,10 @@
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
     var d = db.daily[p] || defDailyRow();
-    return sk.initial - (Number(d.deliveryTotal) || 0) - (Number(d.minamiIssuedTotal) || 0) + (Number(d.sokoReplenishTotal) || 0);
+    return sk.initial
+      - ((Number(d.deliveryTotal) || 0) + (Number(d.deliveryCount) || 0))
+      - ((Number(d.minamiIssuedTotal) || 0) + (Number(d.minamiIssued) || 0))
+      + ((Number(d.sokoReplenishTotal) || 0) + (Number(d.sokoReplenish) || 0));
   }
 
   function statusFromSokoStock(p) {
