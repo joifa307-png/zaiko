@@ -666,8 +666,9 @@
       })
       .then(function (text) {
         if (isPostAlertDebugOn()) {
-          var s = text == null ? '' : String(text);
-          alert('送信成功: ' + s.slice(0, 200));
+          if (!(opts && opts.skipSuccessAlert)) {
+            alert((opts && opts.successAlertText) ? String(opts.successAlertText) : '保存しました');
+          }
         }
         return text;
       })
@@ -865,11 +866,14 @@
         if (now - (inp._lastDdvGAS || 0) < 450) return;
         inp._lastDdvGAS = now;
         syncDeliveryFromInp();
+        var pr = inp.getAttribute('data-p');
         var sen = getSender() || '未記入';
         db.lastSynced = nowStamp();
         db.lastSyncedBy = sen;
         saveDb();
-        return postGAS()
+        var v = inp.value;
+        var shouldAlert = !(v === '' || Number(v) === 0);
+        return postGAS({ successAlertText: '保存しました', skipSuccessAlert: !shouldAlert })
           .then(function () {
             renderHonbu();
             renderNishi();
@@ -1222,6 +1226,7 @@
     html += '<h2>西 パット（初期・しきい値）</h2><div class="table-wrap" id="tb-ni"></div>';
     html += '<h2>倉庫 パット</h2><div class="table-wrap" id="tb-sp"></div>';
     html += '<h2>倉庫 日用品</h2><div class="table-wrap" id="tb-sd"></div>';
+    html += '<h2>品目管理・在庫基準（まとめ）</h2><div class="table-wrap" id="tb-all-settings"></div>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -1257,11 +1262,55 @@
             '<button type="button" class="btn btn-ghost s-rm" data-w="' + which + '" data-ix="' + i + '">削除</button></li>';
         }).join('');
       }
+      function fillCombined(tableId) {
+        var d = document.getElementById(tableId);
+        if (!d) return;
+        var rows = [];
+        db.settings.supplyProducts.forEach(function (p) {
+          var ns = (db.settings.nishiStock && db.settings.nishiStock[p]) || defStockRow();
+          var ss = (db.settings.sokoStock && db.settings.sokoStock[p]) || defStockRow();
+          rows.push({
+            kind: 'パット',
+            name: p,
+            nInit: ns.initial, nWarn: ns.warnAt, nDanger: ns.dangerAt,
+            sInit: ss.initial, sWarn: ss.warnAt, sDanger: ss.dangerAt
+          });
+        });
+        db.settings.dailyProducts.forEach(function (p) {
+          var ds = (db.settings.sokoStock && db.settings.sokoStock[p]) || defStockRow();
+          rows.push({
+            kind: '日用品',
+            name: p,
+            nInit: '—', nWarn: '—', nDanger: '—',
+            sInit: ds.initial, sWarn: ds.warnAt, sDanger: ds.dangerAt
+          });
+        });
+        var t = '<table><thead><tr>' +
+          '<th>区分</th><th>品目</th>' +
+          '<th>西 初期</th><th>西 要補充</th><th>西 緊急</th>' +
+          '<th>倉庫 初期</th><th>倉庫 要補充</th><th>倉庫 緊急</th>' +
+          '</tr></thead><tbody>';
+        rows.forEach(function (r) {
+          t += '<tr>' +
+            '<td>' + escapeText(r.kind) + '</td>' +
+            '<td>' + escapeText(r.name) + '</td>' +
+            '<td class="num">' + escapeText(r.nInit) + '</td>' +
+            '<td class="num">' + escapeText(r.nWarn) + '</td>' +
+            '<td class="num">' + escapeText(r.nDanger) + '</td>' +
+            '<td class="num">' + escapeText(r.sInit) + '</td>' +
+            '<td class="num">' + escapeText(r.sWarn) + '</td>' +
+            '<td class="num">' + escapeText(r.sDanger) + '</td>' +
+            '</tr>';
+        });
+        t += '</tbody></table>';
+        d.innerHTML = t;
+      }
       fillList('l-p', 'p');
       fillList('l-d', 'd');
       fillSt('tb-ni', db.settings.supplyProducts, 'nishiStock');
       fillSt('tb-sp', db.settings.supplyProducts, 'sokoStock');
       fillSt('tb-sd', db.settings.dailyProducts, 'sokoStock');
+      fillCombined('tb-all-settings');
     })();
     var fac = document.getElementById('s-fac2');
     if (fac) {
