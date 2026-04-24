@@ -102,6 +102,7 @@
       padding: 0.5rem 0.9rem; font-size: 1rem; font-weight: 500;
       border: none; border-radius: 4px; cursor: pointer; background: var(--accent); color: #fff;
     }
+    .btn-lg { padding: 0.72rem 1.4rem; font-size: 1.05rem; font-weight: 700; }
     .btn-secondary { background: #475569; }
     .btn-ghost { background: #e2e8f0; color: #0f172a; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -209,7 +210,6 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
-              <button type="button" class="btn" id="n-order-all">発注（一括）</button>
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@
                 <th>西消費(自動)</th>
                 <th>西在庫</th>
                 <th>西補充</th>
-                <th>確認</th>
+                <th>受取</th>
                 <th>状態</th>
               </tr>
             </thead>
@@ -243,6 +243,9 @@
             </thead>
             <tbody id="n-daily-tbody"></tbody>
           </table>
+        </div>
+        <div style="display:flex;justify-content:center;margin-top:1rem;">
+          <button type="button" class="btn btn-lg" id="n-order-all">一括発注を送信</button>
         </div>
       </div>
     </section>
@@ -769,7 +772,7 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn';
-      btn.textContent = '確認';
+      btn.textContent = '受取';
       btn.setAttribute('data-act', 'hon-pat');
       btn.setAttribute('data-p', p);
       tr.cells[7].appendChild(btn);
@@ -1068,13 +1071,13 @@
       db.daily[p].nishiOrderDate = qty > 0 ? today : '';
       if (qty > 0) changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate });
     });
-    console.log('発注内容（一括）', changed);
+    console.log('一括発注の内容', changed);
     if (!changed.length) {
       alert('発注数が0のため送信しません。');
       renderNishi();
       return;
     }
-    var msg = '発注内容（一括）\n' + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n');
+    var msg = '一括発注の内容\n' + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n');
     alert(msg);
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
