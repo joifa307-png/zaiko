@@ -408,14 +408,12 @@
   function defStockRow() { return { initial: 0, warnAt: 10, dangerAt: 5 }; }
   function defSupplyRow() {
     return {
-      nishiConsumed: 0,
+      nishiConsumedAuto: 0,
       nishiReplenish: 0,
-      nishiConfirmed: false,
-      minamiConsumed: 0,
+      nishiReplenishTotal: 0,
+      minamiConsumedAuto: 0,
       sokoReplenish: 0,
-      sokoConfirmed: false,
-      cumeWestTransfer: 0,
-      cumeSokoInbound: 0
+      sokoReplenishTotal: 0
     };
   }
   function defDailyRow() {
@@ -423,10 +421,11 @@
       nishiOrder: 0,
       nishiOrderDate: '',
       deliveryCount: 0,
+      deliveryTotal: 0,
       minamiIssued: 0,
+      minamiIssuedTotal: 0,
       sokoReplenish: 0,
-      sokoConfirmed: false,
-      cumeSokoInbound: 0
+      sokoReplenishTotal: 0
     };
   }
 
@@ -506,17 +505,24 @@
       db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       else {
-        if (db.supply[p].cumeWestTransfer == null) db.supply[p].cumeWestTransfer = 0;
-        if (db.supply[p].cumeSokoInbound == null) db.supply[p].cumeSokoInbound = 0;
         if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
         if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
+        if (db.supply[p].nishiReplenishTotal == null) db.supply[p].nishiReplenishTotal = (db.supply[p].cumeWestTransfer != null ? Number(db.supply[p].cumeWestTransfer) || 0 : 0);
+        if (db.supply[p].sokoReplenishTotal == null) db.supply[p].sokoReplenishTotal = (db.supply[p].cumeSokoInbound != null ? Number(db.supply[p].cumeSokoInbound) || 0 : 0);
       }
       });
     }
     if (Array.isArray(db.settings.dailyProducts) && db.settings.dailyProducts.length > 0) {
       db.settings.dailyProducts.forEach(function (p) {
       if (!db.daily[p]) db.daily[p] = defDailyRow();
-      else if (db.daily[p].cumeSokoInbound == null) db.daily[p].cumeSokoInbound = 0;
+      else {
+        if (db.daily[p].deliveryCount == null) db.daily[p].deliveryCount = 0;
+        if (db.daily[p].minamiIssued == null) db.daily[p].minamiIssued = 0;
+        if (db.daily[p].sokoReplenish == null) db.daily[p].sokoReplenish = 0;
+        if (db.daily[p].deliveryTotal == null) db.daily[p].deliveryTotal = 0;
+        if (db.daily[p].minamiIssuedTotal == null) db.daily[p].minamiIssuedTotal = 0;
+        if (db.daily[p].sokoReplenishTotal == null) db.daily[p].sokoReplenishTotal = (db.daily[p].cumeSokoInbound != null ? Number(db.daily[p].cumeSokoInbound) || 0 : 0);
+      }
       });
     }
     [db.settings.supplyProducts, db.settings.dailyProducts].forEach(function (arr) {
@@ -537,7 +543,7 @@
     var ns = db.settings.nishiStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
     var nAll = sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] : 0;
-    return ns.initial - nAll + s.cumeWestTransfer;
+    return ns.initial - nAll + (Number(s.nishiReplenishTotal) || 0);
   }
 
   function patStockSoko(p) {
@@ -545,14 +551,14 @@
     var sk = db.settings.sokoStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
     var mAll = sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] : 0;
-    return sk.initial - s.cumeWestTransfer - mAll + s.cumeSokoInbound;
+    return sk.initial - (Number(s.nishiReplenishTotal) || 0) - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
   function dailySoko(p) {
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
     var d = db.daily[p] || defDailyRow();
-    return sk.initial - d.deliveryCount - d.minamiIssued + d.cumeSokoInbound;
+    return sk.initial - (Number(d.deliveryTotal) || 0) - (Number(d.minamiIssuedTotal) || 0) + (Number(d.sokoReplenishTotal) || 0);
   }
 
   function statusFromSokoStock(p) {
@@ -959,8 +965,8 @@
     var s = db.supply[p];
     var a = s.nishiReplenish > 0 ? s.nishiReplenish : 0;
     var b = s.sokoReplenish > 0 ? s.sokoReplenish : 0;
-    if (a > 0) { s.cumeWestTransfer = (s.cumeWestTransfer || 0) + a; s.nishiReplenish = 0; s.nishiConfirmed = true; }
-    if (b > 0) { s.cumeSokoInbound = (s.cumeSokoInbound || 0) + b; s.sokoReplenish = 0; s.sokoConfirmed = true; }
+    if (a > 0) { s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + a; s.nishiReplenish = 0; }
+    if (b > 0) { s.sokoReplenishTotal = (Number(s.sokoReplenishTotal) || 0) + b; s.sokoReplenish = 0; }
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
@@ -976,11 +982,15 @@
     if (p === 'トイレットペーパー') {
       console.log('doHonbuDailyConfirm前 トイレットペーパー:', { nishiOrder: d0.nishiOrder, nishiOrderDate: d0.nishiOrderDate });
     }
-    var b = d0.sokoReplenish > 0 ? d0.sokoReplenish : 0;
-    if (b > 0) { d0.cumeSokoInbound = (d0.cumeSokoInbound || 0) + b; d0.sokoReplenish = 0; d0.sokoConfirmed = true; }
-    d0.nishiOrder = 0;
-    d0.nishiOrderDate = '';
+    var dc = Number(d0.deliveryCount) || 0;
+    var mi = Number(d0.minamiIssued) || 0;
+    var b = Number(d0.sokoReplenish) || 0;
+    if (dc > 0) d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + dc;
+    if (mi > 0) d0.minamiIssuedTotal = (Number(d0.minamiIssuedTotal) || 0) + mi;
+    if (b > 0) d0.sokoReplenishTotal = (Number(d0.sokoReplenishTotal) || 0) + b;
     d0.deliveryCount = 0;
+    d0.minamiIssued = 0;
+    d0.sokoReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
@@ -1083,14 +1093,12 @@
     if (!sen) { alert('操作者名（本部上部）を入力してください。'); return; }
     if (!db.supply[p]) return;
     var s = db.supply[p];
-    if (s.nishiReplenish > 0) {
-      s.cumeWestTransfer = (s.cumeWestTransfer || 0) + s.nishiReplenish;
-      s.nishiReplenish = 0;
-    }
+    if (Number(s.nishiReplenish) <= 0) return;
+    s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット確認）'; });
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）'; });
   }
 
   function doNishiPatOrder(p) {
@@ -1124,7 +1132,6 @@
     if (db.daily[p]) {
       db.daily[p].nishiOrder = 0;
       db.daily[p].nishiOrderDate = '';
-      db.daily[p].deliveryCount = 0;
     }
     if (p === 'トイレットペーパー') {
       console.log('doNishiDailyReset実行 トイレットペーパー:', db.daily[p] ? { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate } : 'なし');
