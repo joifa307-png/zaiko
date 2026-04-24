@@ -701,6 +701,24 @@
     }, 700);
   }
 
+  var operationalSyncTimer = null;
+  function scheduleOperationalSync(reason) {
+    if (operationalSyncTimer) clearTimeout(operationalSyncTimer);
+    operationalSyncTimer = setTimeout(function () {
+      operationalSyncTimer = null;
+      gasLog('運用入力同期POST', reason || 'ops-input');
+      postGAS({ skipSuccessAlert: true })
+        .then(function () {
+          var info = document.getElementById('honbu-info');
+          if (info) info.textContent = '入力をGASへ同期: ' + nowStamp();
+        })
+        .catch(function (e) {
+          var err = document.getElementById('honbu-err');
+          if (err) { err.textContent = '入力同期エラー: ' + String(e); err.hidden = false; }
+        });
+    }, 700);
+  }
+
   function getGAS() {
     return fetch(gasUrl + '?token=' + encodeURIComponent(token) + '&ts=' + Date.now(), {
       method: 'GET',
@@ -843,6 +861,7 @@
         saveDb();
         renderNishi();
         renderHonbu();
+        scheduleOperationalSync('honbu-nishi-replenish');
       });
     });
     document.querySelectorAll('.h-sr').forEach(function (inp) {
@@ -853,6 +872,7 @@
         if (isNaN(db.supply[pr].sokoReplenish)) db.supply[pr].sokoReplenish = 0;
         saveDb();
         renderHonbu();
+        scheduleOperationalSync('honbu-soko-replenish');
       });
     });
     document.querySelectorAll('.h-dv').forEach(function (inp) {
@@ -916,6 +936,7 @@
         if (isNaN(db.daily[pr].minamiIssued)) db.daily[pr].minamiIssued = 0;
         saveDb();
         renderHonbu();
+        scheduleOperationalSync('honbu-minami-issued');
       });
     });
     document.querySelectorAll('.h-dsr').forEach(function (inp) {
@@ -926,6 +947,7 @@
         if (isNaN(db.daily[pr].sokoReplenish)) db.daily[pr].sokoReplenish = 0;
         saveDb();
         renderHonbu();
+        scheduleOperationalSync('honbu-daily-soko-replenish');
       });
     });
   }
