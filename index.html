@@ -214,6 +214,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
               <button type="button" class="btn" id="btn-sync-get-nishi">データ送受信</button>
             </div>
+            <p class="meta-line" id="nishi-stamp">最終更新: なし</p>
           </div>
         </div>
         <div class="section-title"><h2>パット類</h2></div>
@@ -267,6 +268,7 @@
   var LS_GAS_URL = 'zaiko_gas_url';
   var LS_GAS_TOKEN = 'zaiko_gas_token';
   var LS_POST_ALERT_DEBUG = 'zaiko_post_alert_debug';
+  var LS_ROLE = 'zaiko_role';
   var gasUrl = DEFAULT_GAS_URL;
   var token = DEFAULT_TOKEN;
   var LS_KEY = 'zaiko_db';
@@ -414,7 +416,8 @@
       nishiReplenishTotal: 0,
       minamiConsumedAuto: 0,
       sokoReplenish: 0,
-      sokoReplenishTotal: 0
+      sokoReplenishTotal: 0,
+      discrepancy: { expected: 0, actual: 0, diff: 0, date: '', resolved: true }
     };
   }
   function defDailyRow() {
@@ -426,7 +429,8 @@
       minamiIssued: 0,
       minamiIssuedTotal: 0,
       sokoReplenish: 0,
-      sokoReplenishTotal: 0
+      sokoReplenishTotal: 0,
+      discrepancy: { expected: 0, actual: 0, diff: 0, date: '', resolved: true }
     };
   }
 
@@ -510,6 +514,7 @@
         if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
         if (db.supply[p].nishiReplenishTotal == null) db.supply[p].nishiReplenishTotal = (db.supply[p].cumeWestTransfer != null ? Number(db.supply[p].cumeWestTransfer) || 0 : 0);
         if (db.supply[p].sokoReplenishTotal == null) db.supply[p].sokoReplenishTotal = (db.supply[p].cumeSokoInbound != null ? Number(db.supply[p].cumeSokoInbound) || 0 : 0);
+        if (!db.supply[p].discrepancy || typeof db.supply[p].discrepancy !== 'object') db.supply[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
       }
       });
     }
@@ -523,6 +528,7 @@
         if (db.daily[p].deliveryTotal == null) db.daily[p].deliveryTotal = 0;
         if (db.daily[p].minamiIssuedTotal == null) db.daily[p].minamiIssuedTotal = 0;
         if (db.daily[p].sokoReplenishTotal == null) db.daily[p].sokoReplenishTotal = (db.daily[p].cumeSokoInbound != null ? Number(db.daily[p].cumeSokoInbound) || 0 : 0);
+        if (!db.daily[p].discrepancy || typeof db.daily[p].discrepancy !== 'object') db.daily[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
       }
       });
     }
@@ -585,6 +591,14 @@
     if (k === 'warn') return 'badge badge-warn';
     if (k === 'ship') return 'badge badge-ship';
     return 'badge badge-ok';
+  }
+  function hasOpenDiscrepancy(x) {
+    return !!(x && x.discrepancy && x.discrepancy.resolved === false && Number(x.discrepancy.diff) !== 0);
+  }
+  function discrepancyText(name, d) {
+    if (!d) return name + ': 差異情報なし';
+    var sign = Number(d.diff) > 0 ? '+' : '';
+    return name + '：予定' + d.expected + '個 → 実受取' + d.actual + '個（' + sign + d.diff + '個）' + (d.date ? (' ' + d.date) : '');
   }
 
   function nowStamp() {
@@ -756,11 +770,36 @@
 
   function renderStamp() {
     var el = document.getElementById('honbu-stamp');
+    var elN = document.getElementById('nishi-stamp');
+    var msg;
     if (db.lastSynced && db.lastSyncedBy) {
-      el.textContent = '最終更新: ' + db.lastSyncedBy + ' ／ ' + db.lastSynced;
+      msg = '最終更新: ' + db.lastSyncedBy + ' ／ ' + db.lastSynced;
     } else {
-      el.textContent = '最終更新: なし';
+      msg = '最終更新: なし';
     }
+    if (el) el.textContent = msg;
+    if (elN) elN.textContent = msg;
+  }
+
+  function getRole() {
+    try {
+      var r = localStorage.getItem(LS_ROLE) || 'both';
+      if (r !== 'honbu' && r !== 'nishi' && r !== 'both') return 'both';
+      return r;
+    } catch (e) { return 'both'; }
+  }
+  function applyRoleUI() {
+    var role = getRole();
+    var honTab = document.querySelector('.tab-btn[data-tab="honbu"]');
+    var nishiTab = document.querySelector('.tab-btn[data-tab="nishi"]');
+    var honPanel = document.getElementById('panel-honbu');
+    var nishiPanel = document.getElementById('panel-nishi');
+    if (honTab) honTab.style.display = role === 'nishi' ? 'none' : '';
+    if (nishiTab) nishiTab.style.display = role === 'honbu' ? 'none' : '';
+    if (honPanel) honPanel.style.display = role === 'nishi' ? 'none' : '';
+    if (nishiPanel) nishiPanel.style.display = role === 'honbu' ? 'none' : '';
+    if (role === 'honbu') activateTab('honbu');
+    else if (role === 'nishi') activateTab('nishi');
   }
 
   function findHonbuDailyTrByProduct(p) {
@@ -828,6 +867,10 @@
       btn.setAttribute('data-p', p);
       tr.cells[7].appendChild(btn);
       tr.cells[8].innerHTML = '<span class="' + badgeClass(stH.k) + '">' + stH.label + '</span>';
+      if (hasOpenDiscrepancy(s)) {
+        tr.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" data-act="disc-view" data-kind="supply" data-p="' + escapeAttr(p) + '">⚠ 差異あり</button>' +
+          ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="supply" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
+      }
       ptb.appendChild(tr);
     });
 
@@ -861,6 +904,10 @@
       b2.setAttribute('data-p', p);
       tr2.cells[7].appendChild(b2);
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
+      if (hasOpenDiscrepancy(d0)) {
+        tr2.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" data-act="disc-view" data-kind="daily" data-p="' + escapeAttr(p) + '">⚠ 差異あり</button>' +
+          ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="daily" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
+      }
       dtb.appendChild(tr2);
     });
     document.querySelectorAll('.h-nr').forEach(function (inp) {
@@ -1025,7 +1072,10 @@
       tr.cells[1].textContent = String(sumN[p] != null ? sumN[p] : 0);
       tr.cells[2].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       if (s.nishiReplenish > 0) {
-        tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個';
+        tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個' +
+          '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
+          '<span class="meta-line">予定: ' + s.nishiReplenish + '個</span> ' +
+          '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
       } else { tr.cells[3].textContent = '—'; }
       var btnOrd = document.createElement('button');
       btnOrd.type = 'button';
@@ -1081,7 +1131,10 @@
         var dc = Number(d0.deliveryCount) || 0;
         var no = Number(d0.nishiOrder) || 0;
         if (dc > 0) {
-          tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>';
+          tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>' +
+            '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-daily" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
+            '<span class="meta-line">予定: ' + dc + '個</span> ' +
+            '<button type="button" class="btn btn-ghost" data-act="n-daily-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
         } else if (no > 0) {
           tr2.cells[4].innerHTML = '<span class="badge badge-ok">発注済</span>';
         } else { tr2.cells[4].textContent = '—'; }
@@ -1103,6 +1156,26 @@
     return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）'; });
   }
 
+  function doNishiPatReceiveConfirm(p) {
+    if (!getSender()) { alert('操作者名（本部上部）を入力してください。'); return; }
+    if (!db.supply[p]) return;
+    var s = db.supply[p];
+    var expected = Number(s.nishiReplenish) || 0;
+    if (expected <= 0) return;
+    var inp = document.querySelector('.n-recv-supply[data-p="' + p + '"]');
+    var actual = inp ? (parseFloat(inp.value) || 0) : 0;
+    if (actual !== expected) {
+      s.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
+    } else {
+      s.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
+    }
+    s.nishiReplenish = 0;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
+  }
+
   function doNishiPatOrder(p) {
     if (!getSender()) { alert('操作者名を上部に入力'); return; }
     ensureProductRows();
@@ -1113,7 +1186,7 @@
     return postGAS().then(function () {
       renderNishi();
       renderHonbu();
-      document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット発注）';
+      document.getElementById('honbu-info').textContent = '発注しました';
     });
   }
 
@@ -1126,7 +1199,7 @@
       console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate });
     }
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
   }
 
   function doNishiDailyReset(p) {
@@ -1149,6 +1222,37 @@
         renderHonbu();
         throw e;
       });
+  }
+
+  function doNishiDailyReceiveConfirm(p) {
+    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (!db.daily[p]) return;
+    var d0 = db.daily[p];
+    var expected = Number(d0.deliveryCount) || 0;
+    if (expected <= 0) return;
+    var inp = document.querySelector('.n-recv-daily[data-p="' + p + '"]');
+    var actual = inp ? (parseFloat(inp.value) || 0) : 0;
+    if (actual !== expected) {
+      d0.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
+    } else {
+      d0.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
+    }
+    d0.nishiOrder = 0;
+    d0.nishiOrderDate = '';
+    d0.deliveryCount = 0;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
+  }
+
+  function resolveDiscrepancy(kind, p) {
+    var row = kind === 'supply' ? db.supply[p] : db.daily[p];
+    if (!row) return;
+    if (!row.discrepancy || typeof row.discrepancy !== 'object') row.discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+    row.discrepancy.resolved = true;
+    saveDb();
+    return postGAS().then(function () { renderHonbu(); renderNishi(); });
   }
 
   function doNishiOrderAll() {
@@ -1185,6 +1289,13 @@
     if (!t) return;
     if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'disc-view') {
+      var kindV = t.getAttribute('data-kind');
+      var pV = t.getAttribute('data-p');
+      var rowV = kindV === 'supply' ? db.supply[pV] : db.daily[pV];
+      alert(discrepancyText(pV, rowV && rowV.discrepancy));
+    }
+    if (t.getAttribute('data-act') === 'disc-resolve') { resolveDiscrepancy(t.getAttribute('data-kind'), t.getAttribute('data-p')); }
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
@@ -1200,8 +1311,10 @@
     if (!t) return;
     if (t.getAttribute('data-act') === 'n-pat-order') { doNishiPatOrder(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'n-pat-recv') { doNishiPatReceiveConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
     if (t.getAttribute('data-act') === 'n-daily-reset') { doNishiDailyReset(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'n-daily-recv') { doNishiDailyReceiveConfirm(t.getAttribute('data-p')); }
   });
 
   document.getElementById('n-week-prev').addEventListener('click', function () {
@@ -1270,7 +1383,12 @@
   function renderSettingsFull() {
     var root = document.getElementById('settings-root');
     ensureProductRows();
+    var role = getRole();
     var html = '';
+    html += '<h2>このデバイスの表示設定</h2><p class="meta-line">' +
+      '<label><input type="radio" name="s-role" value="honbu" ' + (role === 'honbu' ? 'checked' : '') + '/> 本部（本部タブのみ表示）</label> ' +
+      '<label><input type="radio" name="s-role" value="nishi" ' + (role === 'nishi' ? 'checked' : '') + '/> 西（西タブのみ表示）</label> ' +
+      '<label><input type="radio" name="s-role" value="both" ' + (role === 'both' ? 'checked' : '') + '/> 両方表示</label></p>';
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
     html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
@@ -1321,6 +1439,13 @@
       fillSt('tb-nishi-d', db.settings.dailyProducts, 'nishiStock');
     })();
     var fac = document.getElementById('s-fac2');
+    var roleRadios = root.querySelectorAll('input[name="s-role"]');
+    roleRadios.forEach(function (r) {
+      r.onchange = function () {
+        try { localStorage.setItem(LS_ROLE, r.value); } catch (e) {}
+        applyRoleUI();
+      };
+    });
     if (fac) {
       fac.oninput = function (e) {
         db.settings.facilityName = e.target.value;
@@ -1452,6 +1577,7 @@
     document.getElementById('facilityTitle').textContent = db.settings.facilityName;
     renderStamp();
     renderHonbu();
+    applyRoleUI();
     getGAS()
       .then(function (r) { return r.text(); })
       .then(function (t) {
@@ -1460,8 +1586,9 @@
         renderStamp();
         renderHonbu();
         renderNishi();
+        applyRoleUI();
       })
-      .catch(function () { renderNishi(); });
+      .catch(function () { renderNishi(); applyRoleUI(); });
   })();
 })();
   </script>
