@@ -680,6 +680,24 @@
       });
   }
 
+  var settingsSyncTimer = null;
+  function scheduleSettingsSync(reason) {
+    if (settingsSyncTimer) clearTimeout(settingsSyncTimer);
+    settingsSyncTimer = setTimeout(function () {
+      settingsSyncTimer = null;
+      gasLog('設定同期POST', reason || 'settings');
+      postGAS({ includeSettings: true })
+        .then(function () {
+          var info = document.getElementById('honbu-info');
+          if (info) info.textContent = '設定をGASへ同期: ' + nowStamp();
+        })
+        .catch(function (e) {
+          var err = document.getElementById('honbu-err');
+          if (err) { err.textContent = '設定同期エラー: ' + String(e); err.hidden = false; }
+        });
+    }, 700);
+  }
+
   function getGAS() {
     return fetch(gasUrl + '?token=' + encodeURIComponent(token) + '&ts=' + Date.now(), {
       method: 'GET',
@@ -1186,6 +1204,7 @@
       saveDb();
       renderHonbu();
       renderNishi();
+      scheduleSettingsSync('stock-input');
     }
   }
   (function bindSettingsInputOnce() {
@@ -1251,6 +1270,7 @@
         saveDb();
         var ft = document.getElementById('facilityTitle');
         if (ft) ft.textContent = e.target.value || '在庫管理';
+        scheduleSettingsSync('facility-name');
       };
     }
     var addP = document.getElementById('add-p');
@@ -1264,6 +1284,7 @@
         renderSettingsFull();
         renderHonbu();
         renderNishi();
+        scheduleSettingsSync('add-supply-product');
       };
     }
     var addD = document.getElementById('add-d');
@@ -1277,6 +1298,7 @@
         renderSettingsFull();
         renderHonbu();
         renderNishi();
+        scheduleSettingsSync('add-daily-product');
       };
     }
     var im = document.getElementById('imp2');
@@ -1288,6 +1310,7 @@
         var msg = document.getElementById('s-gas-msg');
         if (msg) msg.textContent = 'GAS URL・トークンを保存しました。';
         setTimeout(function () { if (msg) msg.textContent = ''; }, 3500);
+        scheduleSettingsSync('gas-endpoint-save');
       };
     }
     var postAlertDbg = document.getElementById('s-post-alert-debug');
@@ -1313,6 +1336,7 @@
           a0[nix] = u;
           saveDb();
           renderSettingsFull();
+          scheduleSettingsSync('move-product');
         }
         if (t.classList.contains('s-rm')) {
           var w1 = t.getAttribute('data-w');
@@ -1325,6 +1349,7 @@
           renderSettingsFull();
           renderHonbu();
           renderNishi();
+          scheduleSettingsSync('remove-product');
         }
     }
     var ld = document.getElementById('l-d');
@@ -1359,6 +1384,7 @@
     saveDb();
     renderSettingsFull();
     renderHonbu();
+    scheduleSettingsSync('import-products');
   }
 
   // Init
