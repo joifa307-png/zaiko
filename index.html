@@ -209,6 +209,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
+              <button type="button" class="btn" id="n-order-all">発注（一括）</button>
             </div>
           </div>
         </div>
@@ -993,18 +994,11 @@
       tr2.cells[1].appendChild(sel);
       tr2.cells[2].textContent = d0.nishiOrderDate || '—';
       tr2.cells[3].innerHTML = '';
-      var b1 = document.createElement('button');
-      b1.className = 'btn';
-      b1.textContent = '発注';
-      b1.setAttribute('data-act', 'n-ord');
-      b1.setAttribute('data-p', p);
       var b2 = document.createElement('button');
       b2.className = 'btn btn-ghost';
-      b2.textContent = 'リセット';
+      b2.textContent = '受取';
       b2.setAttribute('data-act', 'n-daily-reset');
       b2.setAttribute('data-p', p);
-      tr2.cells[3].appendChild(b1);
-      tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(b2);
       {
         var dc = Number(d0.deliveryCount) || 0;
@@ -1048,10 +1042,42 @@
 
   function doNishiDailyReset(p) {
     if (!getSender()) { alert('操作者名を上部に入力'); return; }
-    if (db.daily[p]) { db.daily[p].nishiOrder = 0; db.daily[p].nishiOrderDate = ''; }
+    if (db.daily[p]) {
+      db.daily[p].nishiOrder = 0;
+      db.daily[p].nishiOrderDate = '';
+      db.daily[p].deliveryCount = 0;
+    }
     if (p === 'トイレットペーパー') {
       console.log('doNishiDailyReset実行 トイレットペーパー:', db.daily[p] ? { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate } : 'なし');
     }
+    saveDb();
+    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+  }
+
+  function doNishiOrderAll() {
+    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    ensureProductRows();
+    var changed = [];
+    var today = ymd(new Date());
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var sel = document.querySelector('#n-daily-tbody select[data-p="' + p + '"]');
+      if (!sel) return;
+      var qty = parseInt(sel.value, 10) || 0;
+      db.daily[p].nishiOrder = qty;
+      db.daily[p].nishiOrderDate = qty > 0 ? today : '';
+      if (qty > 0) changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate });
+    });
+    console.log('発注内容（一括）', changed);
+    if (!changed.length) {
+      alert('発注数が0のため送信しません。');
+      renderNishi();
+      return;
+    }
+    var msg = '発注内容（一括）\n' + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n');
+    alert(msg);
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
     saveDb();
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
@@ -1065,14 +1091,15 @@
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
       if (!getSender()) { e.target.value = 0; alert('操作者名（本部上部）を入力してから発注数を選んでください'); return; }
-      doNishiOrder(e.target.getAttribute('data-p'), e.target.value);
     }
+  });
+  document.getElementById('n-order-all').addEventListener('click', function () {
+    doNishiOrderAll();
   });
   document.getElementById('panel-nishi').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
     var t = e.target;
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
-    if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
     if (t.getAttribute('data-act') === 'n-daily-reset') { doNishiDailyReset(t.getAttribute('data-p')); }
   });
 
