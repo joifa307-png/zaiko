@@ -157,7 +157,7 @@
             <label for="global-sender">操作者名（GAS送信用）</label><br />
             <input type="text" id="global-sender" placeholder="必ず入力" />
           </div>
-          <button type="button" class="btn" id="btn-sync-get">最新データを取得</button>
+          <button type="button" class="btn" id="btn-sync-get">データ送受信</button>
         </div>
         <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
@@ -212,6 +212,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
+              <button type="button" class="btn" id="btn-sync-get-nishi">データ送受信</button>
             </div>
           </div>
         </div>
@@ -870,7 +871,6 @@
         if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
         saveDb();
         renderNishi();
-        renderHonbu();
         scheduleOperationalSync('honbu-nishi-replenish');
       });
     });
@@ -881,7 +881,7 @@
         db.supply[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.supply[pr].sokoReplenish)) db.supply[pr].sokoReplenish = 0;
         saveDb();
-        renderHonbu();
+        renderNishi();
         scheduleOperationalSync('honbu-soko-replenish');
       });
     });
@@ -903,9 +903,7 @@
         db.lastSynced = nowStamp();
         db.lastSyncedBy = sen;
         saveDb();
-        var v = inp.value;
-        var shouldAlert = !(v === '' || Number(v) === 0);
-        return postGAS({ successAlertText: '保存しました', skipSuccessAlert: !shouldAlert })
+        return postGAS({ skipSuccessAlert: true })
           .then(function () {
             renderHonbu();
             renderNishi();
@@ -945,7 +943,7 @@
         db.daily[pr].minamiIssued = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.daily[pr].minamiIssued)) db.daily[pr].minamiIssued = 0;
         saveDb();
-        renderHonbu();
+        renderNishi();
         scheduleOperationalSync('honbu-minami-issued');
       });
     });
@@ -956,7 +954,7 @@
         db.daily[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.daily[pr].sokoReplenish)) db.daily[pr].sokoReplenish = 0;
         saveDb();
-        renderHonbu();
+        renderNishi();
         scheduleOperationalSync('honbu-daily-soko-replenish');
       });
     });
@@ -1215,20 +1213,27 @@
   }
   document.querySelectorAll('.tab-btn').forEach(function (b) { b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); }); });
 
-  document.getElementById('btn-sync-get').addEventListener('click', function () {
+  function runManualSyncGet() {
     console.log('取得ボタン押下');
     var el = document.getElementById('honbu-err');
     el.hidden = true;
-    getGAS()
+    return getGAS()
       .then(function (r) { return r.text(); })
       .then(function (t) {
         processGetResponse(t, '手動GET');
         saveDb();
         renderStamp();
         renderHonbu();
+        renderNishi();
         document.getElementById('honbu-info').textContent = 'GAS から取り込み: ' + nowStamp();
       })
       .catch(function (e) { el.textContent = String(e); el.hidden = false; });
+  }
+  document.getElementById('btn-sync-get').addEventListener('click', function () {
+    runManualSyncGet();
+  });
+  document.getElementById('btn-sync-get-nishi').addEventListener('click', function () {
+    runManualSyncGet();
   });
 
   function onSettingsInput(e) {
