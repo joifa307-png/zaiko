@@ -805,7 +805,7 @@
       var b2 = document.createElement('button');
       b2.type = 'button';
       b2.className = 'btn';
-      b2.textContent = '確認';
+      b2.textContent = '受取';
       b2.setAttribute('data-act', 'hon-daily');
       b2.setAttribute('data-p', p);
       tr2.cells[7].appendChild(b2);
@@ -968,10 +968,18 @@
       if (s.nishiReplenish > 0) {
         tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個';
       } else { tr.cells[3].textContent = '—'; }
+      var btnOrd = document.createElement('button');
+      btnOrd.type = 'button';
+      btnOrd.className = 'btn';
+      btnOrd.textContent = '発注';
+      btnOrd.setAttribute('data-act', 'n-pat-order');
+      btnOrd.setAttribute('data-p', p);
+      tr.cells[4].appendChild(btnOrd);
+      tr.cells[4].appendChild(document.createTextNode(' '));
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'btn';
-      btn.textContent = '確認';
+      btn.className = 'btn btn-ghost';
+      btn.textContent = '受取';
       btn.setAttribute('data-act', 'n-pat');
       btn.setAttribute('data-p', p);
       tr.cells[4].appendChild(btn);
@@ -997,11 +1005,18 @@
       tr2.cells[1].appendChild(sel);
       tr2.cells[2].textContent = d0.nishiOrderDate || '—';
       tr2.cells[3].innerHTML = '';
+      var b1 = document.createElement('button');
+      b1.className = 'btn';
+      b1.textContent = '発注';
+      b1.setAttribute('data-act', 'n-ord');
+      b1.setAttribute('data-p', p);
       var b2 = document.createElement('button');
       b2.className = 'btn btn-ghost';
       b2.textContent = '受取';
       b2.setAttribute('data-act', 'n-daily-reset');
       b2.setAttribute('data-p', p);
+      tr2.cells[3].appendChild(b1);
+      tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(b2);
       {
         var dc = Number(d0.deliveryCount) || 0;
@@ -1029,6 +1044,20 @@
     db.lastSyncedBy = sen;
     saveDb();
     return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット確認）'; });
+  }
+
+  function doNishiPatOrder(p) {
+    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    ensureProductRows();
+    if (!db.supply[p]) db.supply[p] = defSupplyRow();
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS().then(function () {
+      renderNishi();
+      renderHonbu();
+      document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット発注）';
+    });
   }
 
   function doNishiOrder(p, qty) {
@@ -1102,7 +1131,9 @@
   document.getElementById('panel-nishi').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
     var t = e.target;
+    if (t.getAttribute('data-act') === 'n-pat-order') { doNishiPatOrder(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
     if (t.getAttribute('data-act') === 'n-daily-reset') { doNishiDailyReset(t.getAttribute('data-p')); }
   });
 
