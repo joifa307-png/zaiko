@@ -551,7 +551,8 @@
     var sk = db.settings.sokoStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
     var mAll = sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] : 0;
-    return sk.initial - (Number(s.nishiReplenishTotal) || 0) - mAll + (Number(s.sokoReplenishTotal) || 0);
+    var inTransitToNishi = Number(s.nishiReplenish) || 0;
+    return sk.initial - (Number(s.nishiReplenishTotal) || 0) - inTransitToNishi - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
   function dailySoko(p) {
