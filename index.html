@@ -600,6 +600,13 @@
     var sign = Number(d.diff) > 0 ? '+' : '';
     return name + '：予定' + d.expected + '個 → 実受取' + d.actual + '個（' + sign + d.diff + '個）' + (d.date ? (' ' + d.date) : '');
   }
+  function discrepancyBadgeLabel(d) {
+    if (!d) return '⚠ 差異あり';
+    var diff = Number(d.diff) || 0;
+    if (diff < 0) return '⚠ 予定より' + Math.abs(diff) + '個少ないようです';
+    if (diff > 0) return '⚠ 予定より' + diff + '個多いようです';
+    return '⚠ 差異あり';
+  }
 
   function nowStamp() {
     var n = new Date();
@@ -868,7 +875,7 @@
       tr.cells[7].appendChild(btn);
       tr.cells[8].innerHTML = '<span class="' + badgeClass(stH.k) + '">' + stH.label + '</span>';
       if (hasOpenDiscrepancy(s)) {
-        tr.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" data-act="disc-view" data-kind="supply" data-p="' + escapeAttr(p) + '">⚠ 差異あり</button>' +
+        tr.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" style="background:#fecaca;color:#991b1b" data-act="disc-view" data-kind="supply" data-p="' + escapeAttr(p) + '">' + escapeText(discrepancyBadgeLabel(s.discrepancy)) + '</button>' +
           ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="supply" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
       }
       ptb.appendChild(tr);
@@ -905,7 +912,7 @@
       tr2.cells[7].appendChild(b2);
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
       if (hasOpenDiscrepancy(d0)) {
-        tr2.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" data-act="disc-view" data-kind="daily" data-p="' + escapeAttr(p) + '">⚠ 差異あり</button>' +
+        tr2.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" style="background:#fecaca;color:#991b1b" data-act="disc-view" data-kind="daily" data-p="' + escapeAttr(p) + '">' + escapeText(discrepancyBadgeLabel(d0.discrepancy)) + '</button>' +
           ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="daily" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
       }
       dtb.appendChild(tr2);
