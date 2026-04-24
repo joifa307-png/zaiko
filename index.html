@@ -137,6 +137,18 @@
     .slist .nm { flex: 1; min-width: 6rem; }
     .slist-head { display: flex; align-items: center; gap: 0.35rem; margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
     .slist-head .nm { flex: 1; min-width: 6rem; }
+    .honbu-disc-box {
+      margin: 0.5rem 0 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid #fecaca;
+      background: #fff7f7;
+      border-radius: 4px;
+    }
+    .honbu-disc-box p, .honbu-disc-box p.disc-line { margin: 0.2rem 0; color: #b91c1c; font-size: 0.95rem; }
+    .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
+    .comms-input-row { max-width: 32rem; margin: 0.4rem auto 0; text-align: left; }
+    .comms-input-row .comms-ta { width: 100%; min-height: 2.5rem; resize: vertical; }
+    .comms-actions { text-align: right; margin-top: 0.35rem; }
   </style>
 </head>
 <body>
@@ -162,6 +174,16 @@
         <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
         <p class="error-msg" id="honbu-err" hidden></p>
+        <div id="honbu-disc-box" class="honbu-disc-box" hidden></div>
+        <div id="honbu-comms" style="text-align:center; margin: 0.5rem 0 0.75rem;">
+          <p class="comms-line" id="honbu-msg-latest">（直近のメッセージはありません）</p>
+          <div class="comms-input-row">
+            <textarea class="comms-ta" id="honbu-msg-inp" rows="2" placeholder="メッセージを入力"></textarea>
+            <div class="comms-actions">
+              <button type="button" class="btn" id="honbu-msg-send">送信</button>
+            </div>
+          </div>
+        </div>
         <div class="section-title"><h2>パット類</h2></div>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -205,7 +227,7 @@
 
     <section class="panel" data-panel="nishi" id="panel-nishi">
       <div class="card">
-        <div class="row-flex">
+        <div class="row-flex" style="flex-wrap: wrap;">
           <div>
             <label>集計期間（週：月曜〜日曜）</label><br />
             <div>
@@ -215,6 +237,19 @@
               <button type="button" class="btn" id="btn-sync-get-nishi">データ送受信</button>
             </div>
             <p class="meta-line" id="nishi-stamp">最終更新: なし</p>
+          </div>
+          <div>
+            <label for="global-sender-nishi">操作者名（GAS送信用・西のみ表示時）</label><br />
+            <input type="text" id="global-sender-nishi" placeholder="必ず入力" style="min-width:12rem" />
+          </div>
+        </div>
+        <div id="nishi-comms" style="text-align: center; margin: 0.6rem 0; max-width: 36rem; margin-left: auto; margin-right: auto;">
+          <p class="comms-line" id="nishi-msg-latest">（直近のメッセージはありません）</p>
+          <div class="comms-input-row">
+            <textarea class="comms-ta" id="nishi-msg-inp" rows="2" placeholder="メッセージを入力"></textarea>
+            <div class="comms-actions">
+              <button type="button" class="btn" id="nishi-msg-send">送信</button>
+            </div>
           </div>
         </div>
         <div class="section-title"><h2>パット類</h2></div>
@@ -248,7 +283,9 @@
             <tbody id="n-daily-tbody"></tbody>
           </table>
         </div>
-        <div style="display:flex;justify-content:center;margin-top:1rem;">
+        <div style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-top:1rem;">
+          <label for="nishi-operator-sel" class="meta-line">西スタッフ（操作者）</label>
+          <select id="nishi-operator-sel" style="min-width:10rem;font-size:1.05rem;"></select>
           <button type="button" class="btn btn-lg" id="n-order-all">一括発注を送信</button>
         </div>
       </div>
@@ -272,6 +309,7 @@
   var gasUrl = DEFAULT_GAS_URL;
   var token = DEFAULT_TOKEN;
   var LS_KEY = 'zaiko_db';
+  var LS_NISHI_OPERATOR = 'zaiko_nishi_order_by';
   var LS_KAIGO_NISHI = 'kaigo_nishi';
   var LS_KAIGO_MINAMI = 'kaigo_minami';
   var GAS_DEBUG = true;
@@ -424,6 +462,8 @@
     return {
       nishiOrder: 0,
       nishiOrderDate: '',
+      nishiOrderAt: '',
+      nishiOrderBy: '',
       deliveryCount: 0,
       deliveryTotal: 0,
       minamiIssued: 0,
@@ -441,10 +481,12 @@
         supplyProducts: [],
         dailyProducts: DEFAULT_DAILY.slice(),
         nishiStock: {},
-        sokoStock: {}
+        sokoStock: {},
+        westStaff: []
       },
       supply: {},
       daily: {},
+      message: { from: '', text: '', sentAt: '' },
       lastSynced: '',
       lastSyncedBy: ''
     };
@@ -460,9 +502,13 @@
         ? raw.settings.dailyProducts.map(String) : o.settings.dailyProducts;
       o.settings.nishiStock = raw.settings.nishiStock && typeof raw.settings.nishiStock === 'object' ? raw.settings.nishiStock : {};
       o.settings.sokoStock = raw.settings.sokoStock && typeof raw.settings.sokoStock === 'object' ? raw.settings.sokoStock : {};
+      o.settings.westStaff = Array.isArray(raw.settings.westStaff) ? raw.settings.westStaff.map(String) : [];
     }
     o.supply = raw.supply && typeof raw.supply === 'object' ? raw.supply : {};
     o.daily = raw.daily && typeof raw.daily === 'object' ? raw.daily : {};
+    o.message = raw.message && typeof raw.message === 'object' && !Array.isArray(raw.message)
+      ? { from: raw.message.from != null ? String(raw.message.from) : '', text: raw.message.text != null ? String(raw.message.text) : '', sentAt: raw.message.sentAt != null ? String(raw.message.sentAt) : '' }
+      : { from: '', text: '', sentAt: '' };
     o.lastSynced = raw.lastSynced != null ? String(raw.lastSynced) : '';
     o.lastSyncedBy = raw.lastSyncedBy != null ? String(raw.lastSyncedBy) : '';
     if (!o.settings.dailyProducts.length) o.settings.dailyProducts = DEFAULT_DAILY.slice();
@@ -494,17 +540,26 @@
 
   function getSender() {
     var e = document.getElementById('global-sender');
-    return (e && e.value || '').trim();
+    var e2 = document.getElementById('global-sender-nishi');
+    return (e && e.value || e2 && e2.value || '').trim();
   }
 
   function ensureProductRows() {
     if (!db.settings || typeof db.settings !== 'object') db.settings = {};
     if (!Array.isArray(db.settings.supplyProducts)) db.settings.supplyProducts = [];
     if (!Array.isArray(db.settings.dailyProducts)) db.settings.dailyProducts = [];
+    if (!Array.isArray(db.settings.westStaff)) db.settings.westStaff = [];
     if (!db.settings.sokoStock || typeof db.settings.sokoStock !== 'object') db.settings.sokoStock = {};
     if (!db.settings.nishiStock || typeof db.settings.nishiStock !== 'object') db.settings.nishiStock = {};
     if (!db.supply || typeof db.supply !== 'object') db.supply = {};
     if (!db.daily || typeof db.daily !== 'object') db.daily = {};
+    if (!db.message || typeof db.message !== 'object' || Array.isArray(db.message)) {
+      db.message = { from: '', text: '', sentAt: '' };
+    } else {
+      if (db.message.from == null) db.message.from = '';
+      if (db.message.text == null) db.message.text = '';
+      if (db.message.sentAt == null) db.message.sentAt = '';
+    }
 
     if (Array.isArray(db.settings.supplyProducts) && db.settings.supplyProducts.length > 0) {
       db.settings.supplyProducts.forEach(function (p) {
@@ -528,6 +583,8 @@
         if (db.daily[p].deliveryTotal == null) db.daily[p].deliveryTotal = 0;
         if (db.daily[p].minamiIssuedTotal == null) db.daily[p].minamiIssuedTotal = 0;
         if (db.daily[p].sokoReplenishTotal == null) db.daily[p].sokoReplenishTotal = (db.daily[p].cumeSokoInbound != null ? Number(db.daily[p].cumeSokoInbound) || 0 : 0);
+        if (db.daily[p].nishiOrderBy == null) db.daily[p].nishiOrderBy = '';
+        if (db.daily[p].nishiOrderAt == null) db.daily[p].nishiOrderAt = '';
         if (!db.daily[p].discrepancy || typeof db.daily[p].discrepancy !== 'object') db.daily[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
       }
       });
@@ -607,6 +664,128 @@
     if (diff > 0) return '⚠ 予定より' + diff + '個多いようです';
     return '⚠ 差異あり';
   }
+  function discrepancyPlainMessage(d) {
+    if (!d) return '';
+    var diff = Number(d.diff) || 0;
+    if (diff < 0) return '予定より' + Math.abs(diff) + '個少ないようです';
+    if (diff > 0) return '予定より' + diff + '個多いようです';
+    return '';
+  }
+  function updateHonbuDiscrepancyBanner() {
+    var box = document.getElementById('honbu-disc-box');
+    if (!box) return;
+    var lines = [];
+    ensureProductRows();
+    (db.settings.supplyProducts || []).forEach(function (p) {
+      if (!db.supply[p]) return;
+      if (hasOpenDiscrepancy(db.supply[p])) {
+        lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.supply[p].discrepancy)));
+      }
+    });
+    (db.settings.dailyProducts || []).forEach(function (p) {
+      if (!db.daily[p]) return;
+      if (hasOpenDiscrepancy(db.daily[p])) {
+        lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.daily[p].discrepancy)));
+      }
+    });
+    if (lines.length === 0) {
+      box.innerHTML = '';
+      box.setAttribute('hidden', '');
+    } else {
+      box.removeAttribute('hidden');
+      box.innerHTML = lines.map(function (L) { return '<p class="disc-line">' + L + '</p>'; }).join('');
+    }
+  }
+  function formatMessageForDisplay() {
+    ensureProductRows();
+    var msg = db.message;
+    if (!msg || !String(msg.text).trim()) return '（直近のメッセージはありません）';
+    var m = String(msg.sentAt || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+    var tpart = m
+      ? String(m[2]).padStart(2, '0') + '/' + String(m[3]).padStart(2, '0') + ' ' + String(m[4]).padStart(2, '0') + ':' + String(m[5]).padStart(2, '0')
+      : (msg.sentAt || '');
+    var from = (msg.from === '本部' || msg.from === '西') ? msg.from : (msg.from || '？');
+    return from + 'より ' + tpart + '：' + String(msg.text);
+  }
+  function getSelectedNishiOperator() {
+    var sel = document.getElementById('nishi-operator-sel');
+    if (!sel) return '';
+    var v = (sel.value || '').trim();
+    if (!v) return '';
+    return v;
+  }
+  function fillNishiOperatorOptions() {
+    var sel = document.getElementById('nishi-operator-sel');
+    if (!sel) return;
+    var list = (db.settings && Array.isArray(db.settings.westStaff)) ? db.settings.westStaff.slice() : [];
+    var ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = '選択してください';
+    sel.innerHTML = '';
+    sel.appendChild(ph);
+    list.forEach(function (name) {
+      if (!name) return;
+      var o = document.createElement('option');
+      o.value = name;
+      o.textContent = name;
+      sel.appendChild(o);
+    });
+    var saved = '';
+    try { saved = localStorage.getItem(LS_NISHI_OPERATOR) || ''; } catch (e) {}
+    if (saved && list.indexOf(saved) >= 0) {
+      sel.value = saved;
+    } else { sel.value = ''; }
+  }
+  function updateMessageAreas() {
+    var elH = document.getElementById('honbu-msg-latest');
+    var elN = document.getElementById('nishi-msg-latest');
+    var t = formatMessageForDisplay();
+    if (elH) elH.textContent = t;
+    if (elN) elN.textContent = t;
+  }
+  function formatNishiOrderLineHonbu(d0) {
+    if (!d0 || !Number(d0.nishiOrder)) return '—';
+    var t = '';
+    if (d0.nishiOrderAt) {
+      var m = String(d0.nishiOrderAt).match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+      t = m
+        ? String(m[2]).padStart(2, '0') + '/' + String(m[3]).padStart(2, '0') + ' ' + String(m[4]).padStart(2, '0') + ':' + String(m[5]).padStart(2, '0')
+        : String(d0.nishiOrderAt);
+    } else {
+      t = d0.nishiOrderDate || '—';
+    }
+    var by = (d0.nishiOrderBy && String(d0.nishiOrderBy).trim()) ? (' ' + d0.nishiOrderBy) : '';
+    return t + by;
+  }
+  function formatNishiOrderLineNishi(d0) {
+    if (!d0 || !Number(d0.nishiOrder)) return '—';
+    var t = d0.nishiOrderDate || '';
+    if (d0.nishiOrderAt) {
+      var m = String(d0.nishiOrderAt).match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+      t = m
+        ? String(m[2]).padStart(2, '0') + '/' + String(m[3]).padStart(2, '0') + ' ' + String(m[4]).padStart(2, '0') + ':' + String(m[5]).padStart(2, '0')
+        : t;
+    }
+    var by = (d0.nishiOrderBy && String(d0.nishiOrderBy).trim()) ? (' ' + d0.nishiOrderBy) : '';
+    return (t || '—') + by;
+  }
+  function sendCommsMessage(fromLabel) {
+    var inp = fromLabel === '西' ? document.getElementById('nishi-msg-inp') : document.getElementById('honbu-msg-inp');
+    var text = (inp && inp.value || '').trim();
+    if (!text) { alert('メッセージを入力してください。'); return; }
+    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
+    ensureProductRows();
+    db.message = { from: fromLabel, text: text, sentAt: nowStamp() };
+    if (inp) inp.value = '';
+    saveDb();
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        updateMessageAreas();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = 'メッセージを送信: ' + nowStamp();
+        renderStamp();
+      });
+  }
 
   function nowStamp() {
     var n = new Date();
@@ -621,7 +800,10 @@
       sender: getSender() || '未記入',
       sentAt: nowStamp(),
       supply: db.supply,
-      daily: db.daily
+      daily: db.daily,
+      message: db.message && typeof db.message === 'object' && !Array.isArray(db.message)
+        ? { from: String(db.message.from || ''), text: String(db.message.text || ''), sentAt: String(db.message.sentAt || '') }
+        : { from: '', text: '', sentAt: '' }
     };
     if (includeSettings) payload.settings = db.settings;
     var toilet = payload.daily && payload.daily['トイレットペーパー'];
@@ -646,11 +828,15 @@
       if (!db.settings || typeof db.settings !== 'object') db.settings = {};
       if (!Array.isArray(db.settings.supplyProducts)) db.settings.supplyProducts = [];
       if (!Array.isArray(db.settings.dailyProducts)) db.settings.dailyProducts = [];
+      if (!Array.isArray(db.settings.westStaff)) db.settings.westStaff = [];
       if (!Array.isArray(d.settings.supplyProducts) || d.settings.supplyProducts.length === 0) {
         d.settings.supplyProducts = db.settings.supplyProducts;
       }
       if (!Array.isArray(d.settings.dailyProducts) || d.settings.dailyProducts.length === 0) {
         d.settings.dailyProducts = db.settings.dailyProducts;
+      }
+      if (!Array.isArray(d.settings.westStaff) || d.settings.westStaff.length === 0) {
+        d.settings.westStaff = db.settings.westStaff.slice();
       }
       db.settings = d.settings;
     }
@@ -660,13 +846,20 @@
     if (d.daily && typeof d.daily === 'object') {
       db.daily = d.daily;
     }
+    if (d.message && typeof d.message === 'object' && !Array.isArray(d.message)) {
+      db.message = {
+        from: d.message.from != null ? String(d.message.from) : '',
+        text: d.message.text != null ? String(d.message.text) : '',
+        sentAt: d.message.sentAt != null ? String(d.message.sentAt) : ''
+      };
+    }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
   }
 
   function resolveGASBody(o) {
     if (!o || typeof o !== 'object') return o;
-    if (o.data && typeof o.data === 'object' && (o.data.settings || o.data.supply || o.data.daily)) return o.data;
+    if (o.data && typeof o.data === 'object' && (o.data.settings || o.data.supply || o.data.daily || o.data.message)) return o.data;
     if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return o.body;
     if (o.payload && typeof o.payload === 'object') return o.payload;
     if (o.result && typeof o.result === 'object') return o.result;
@@ -834,6 +1027,7 @@
 
   function renderHonbu() {
     ensureProductRows();
+    updateHonbuDiscrepancyBanner();
     var ptb = document.getElementById('honbu-pat-tbody');
     var dtb = document.getElementById('honbu-daily-tbody');
     ptb.innerHTML = '';
@@ -892,7 +1086,7 @@
         '<td class="num col-south col-divide"></td><td class="num col-soko"></td><td class="col-soko"></td><td></td><td></td>';
       tr2.cells[0].textContent = p;
       tr2.cells[1].textContent = String(d0.nishiOrder != null ? d0.nishiOrder : 0);
-      tr2.cells[2].textContent = d0.nishiOrderDate || '—';
+      tr2.cells[2].textContent = formatNishiOrderLineHonbu(d0);
       tr2.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-dv" data-p="" style="width:4.5rem" />';
       tr2.cells[3].querySelector('input').value = d0.deliveryCount != null ? d0.deliveryCount : '';
       tr2.cells[3].querySelector('input').setAttribute('data-p', p);
@@ -1012,6 +1206,7 @@
         scheduleOperationalSync('honbu-daily-soko-replenish');
       });
     });
+    updateMessageAreas();
   }
 
   function doHonbuPatConfirm(p) {
@@ -1119,7 +1314,7 @@
         sel.appendChild(op);
       }
       tr2.cells[1].appendChild(sel);
-      tr2.cells[2].textContent = d0.nishiOrderDate || '—';
+      tr2.cells[2].textContent = formatNishiOrderLineNishi(d0);
       tr2.cells[3].innerHTML = '';
       var b1 = document.createElement('button');
       b1.className = 'btn';
@@ -1148,6 +1343,15 @@
       }
       dtb.appendChild(tr2);
     });
+    fillNishiOperatorOptions();
+    var sOp = document.getElementById('nishi-operator-sel');
+    if (sOp) {
+      sOp.onchange = function () {
+        var v2 = sOp.value || '';
+        try { if (v2) localStorage.setItem(LS_NISHI_OPERATOR, v2); } catch (e) {}
+      };
+    }
+    updateMessageAreas();
   }
 
   function doNishiPatConfirm(p) {
@@ -1184,7 +1388,8 @@
   }
 
   function doNishiPatOrder(p) {
-    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
+    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
     ensureProductRows();
     if (!db.supply[p]) db.supply[p] = defSupplyRow();
     db.lastSynced = nowStamp();
@@ -1198,12 +1403,24 @@
   }
 
   function doNishiOrder(p, qty) {
-    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (!getSender()) { alert('操作者名（GAS送信用）を上部または西タブ内に入力してください。'); return; }
+    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
     if (!db.daily[p]) db.daily[p] = defDailyRow();
-    db.daily[p].nishiOrder = parseInt(qty, 10) || 0;
-    db.daily[p].nishiOrderDate = ymd(new Date());
+    var op = getSelectedNishiOperator();
+    var n = parseInt(qty, 10) || 0;
+    db.daily[p].nishiOrder = n;
+    if (n > 0) {
+      db.daily[p].nishiOrderDate = ymd(new Date());
+      db.daily[p].nishiOrderAt = nowStamp();
+      db.daily[p].nishiOrderBy = op;
+      try { localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
+    } else {
+      db.daily[p].nishiOrderDate = '';
+      db.daily[p].nishiOrderAt = '';
+      db.daily[p].nishiOrderBy = '';
+    }
     if (p === 'トイレットペーパー') {
-      console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate });
+      console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate, nishiOrderBy: db.daily[p].nishiOrderBy });
     }
     saveDb();
     return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
@@ -1214,6 +1431,8 @@
     if (db.daily[p]) {
       db.daily[p].nishiOrder = 0;
       db.daily[p].nishiOrderDate = '';
+      db.daily[p].nishiOrderAt = '';
+      db.daily[p].nishiOrderBy = '';
       db.daily[p].deliveryCount = 0;
     }
     if (p === 'トイレットペーパー') {
@@ -1246,6 +1465,8 @@
     }
     d0.nishiOrder = 0;
     d0.nishiOrderDate = '';
+    d0.nishiOrderAt = '';
+    d0.nishiOrderBy = '';
     d0.deliveryCount = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
@@ -1259,12 +1480,14 @@
     if (!row.discrepancy || typeof row.discrepancy !== 'object') row.discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
     row.discrepancy.resolved = true;
     saveDb();
-    return postGAS().then(function () { renderHonbu(); renderNishi(); });
+    return postGAS().then(function () { updateHonbuDiscrepancyBanner(); renderHonbu(); renderNishi(); });
   }
 
   function doNishiOrderAll() {
-    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
+    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
     ensureProductRows();
+    var op = getSelectedNishiOperator();
     var changed = [];
     var today = ymd(new Date());
     db.settings.dailyProducts.forEach(function (p) {
@@ -1273,9 +1496,18 @@
       if (!sel) return;
       var qty = parseInt(sel.value, 10) || 0;
       db.daily[p].nishiOrder = qty;
-      db.daily[p].nishiOrderDate = qty > 0 ? today : '';
-      if (qty > 0) changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate });
+      if (qty > 0) {
+        db.daily[p].nishiOrderDate = today;
+        db.daily[p].nishiOrderAt = nowStamp();
+        db.daily[p].nishiOrderBy = op;
+        changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate });
+      } else {
+        db.daily[p].nishiOrderDate = '';
+        db.daily[p].nishiOrderAt = '';
+        db.daily[p].nishiOrderBy = '';
+      }
     });
+    try { if (op) localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
     console.log('一括発注の内容', changed);
     if (!changed.length) {
       alert('発注数が0のため送信しません。');
@@ -1397,6 +1629,7 @@
       '<label><input type="radio" name="s-role" value="nishi" ' + (role === 'nishi' ? 'checked' : '') + '/> 西（西タブのみ表示）</label> ' +
       '<label><input type="radio" name="s-role" value="both" ' + (role === 'both' ? 'checked' : '') + '/> 両方表示</label></p>';
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
+    html += '<h2>西スタッフ管理</h2><p class="meta-line">発注時の操作者候補（GASに同期）</p><ul id="l-ws" class="slist"></ul><p><input id="new-ws" placeholder="スタッフ名" /> <button type="button" class="btn" id="add-ws">追加</button></p>';
     html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
@@ -1438,8 +1671,20 @@
             '<button type="button" class="btn btn-ghost s-rm" data-w="' + which + '" data-ix="' + i + '">削除</button></li>';
         }).join('');
       }
+      function fillWestStaff() {
+        var el = document.getElementById('l-ws');
+        if (!el) return;
+        var arr = (db.settings.westStaff && Array.isArray(db.settings.westStaff)) ? db.settings.westStaff : [];
+        el.innerHTML = arr.map(function (name, i) {
+          return '<li><span class="nm">' + escapeText(name) + '</span>' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="ws" data-ix="' + i + '" data-d="-1" title="上へ">↑</button>' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="ws" data-ix="' + i + '" data-d="1" title="下へ">↓</button>' +
+            '<button type="button" class="btn btn-ghost s-rm" data-w="ws" data-ix="' + i + '">削除</button></li>';
+        }).join('');
+      }
       fillList('l-p', 'p');
       fillList('l-d', 'd');
+      fillWestStaff();
       fillSt('tb-soko-p', db.settings.supplyProducts, 'sokoStock');
       fillSt('tb-soko-d', db.settings.dailyProducts, 'sokoStock');
       fillSt('tb-nishi-p', db.settings.supplyProducts, 'nishiStock');
@@ -1490,6 +1735,20 @@
         scheduleSettingsSync('add-daily-product');
       };
     }
+    var addWS = document.getElementById('add-ws');
+    if (addWS) {
+      addWS.onclick = function () {
+        var vn = (document.getElementById('new-ws') && document.getElementById('new-ws').value || '').trim();
+        if (!vn) return;
+        if (!Array.isArray(db.settings.westStaff)) db.settings.westStaff = [];
+        if (db.settings.westStaff.indexOf(vn) >= 0) return;
+        db.settings.westStaff.push(vn);
+        saveDb();
+        renderSettingsFull();
+        renderNishi();
+        scheduleSettingsSync('add-west-staff');
+      };
+    }
     var im = document.getElementById('imp2');
     if (im) im.onclick = doImport;
     var gasSave = document.getElementById('s-gas-save');
@@ -1517,6 +1776,20 @@
           var w0 = t.getAttribute('data-w');
           var ix0 = parseInt(t.getAttribute('data-ix'), 10);
           var d0 = parseInt(t.getAttribute('data-d'), 10);
+          if (w0 === 'ws') {
+            if (!Array.isArray(db.settings.westStaff)) db.settings.westStaff = [];
+            var aWs = db.settings.westStaff;
+            var nixW = ix0 + d0;
+            if (nixW < 0 || nixW >= aWs.length) return;
+            var uw = aWs[ix0];
+            aWs[ix0] = aWs[nixW];
+            aWs[nixW] = uw;
+            saveDb();
+            renderSettingsFull();
+            renderNishi();
+            scheduleSettingsSync('move-west-staff');
+            return;
+          }
           var a0 = w0 === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
           var nix = ix0 + d0;
           if (nix < 0 || nix >= a0.length) return;
@@ -1529,6 +1802,16 @@
         }
         if (t.classList.contains('s-rm')) {
           var w1 = t.getAttribute('data-w');
+          if (w1 === 'ws') {
+            if (!Array.isArray(db.settings.westStaff)) db.settings.westStaff = [];
+            var ixW = parseInt(t.getAttribute('data-ix'), 10);
+            db.settings.westStaff.splice(ixW, 1);
+            saveDb();
+            renderSettingsFull();
+            renderNishi();
+            scheduleSettingsSync('remove-west-staff');
+            return;
+          }
           var ix1 = parseInt(t.getAttribute('data-ix'), 10);
           var a1 = w1 === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
           var pr = a1.splice(ix1, 1)[0];
@@ -1542,8 +1825,10 @@
         }
     }
     var ld = document.getElementById('l-d');
+    var lws = document.getElementById('l-ws');
     if (lp) lp.onclick = listRowClick;
     if (ld) ld.onclick = listRowClick;
+    if (lws) lws.onclick = listRowClick;
   }
 
   function doImport() {
@@ -1579,8 +1864,17 @@
   // Init
   (function init() {
     ensureProductRows();
-    if (!document.getElementById('global-sender').value) document.getElementById('global-sender').value = localStorage.getItem('zaiko_global_sender') || '';
-    document.getElementById('global-sender').addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', document.getElementById('global-sender').value); } catch (e) {} });
+    var gSend = document.getElementById('global-sender');
+    var gSendN = document.getElementById('global-sender-nishi');
+    var sva = (localStorage.getItem('zaiko_global_sender') || '');
+    if (gSend && !gSend.value) gSend.value = sva;
+    if (gSendN && !gSendN.value) gSendN.value = sva;
+    if (gSend) gSend.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSend.value); if (gSendN) gSendN.value = gSend.value; } catch (e) {} });
+    if (gSendN) gSendN.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSendN.value); if (gSend) gSend.value = gSendN.value; } catch (e) {} });
+    var hbSend = document.getElementById('honbu-msg-send');
+    var nsSend = document.getElementById('nishi-msg-send');
+    if (hbSend) hbSend.addEventListener('click', function () { sendCommsMessage('本部'); });
+    if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
     document.getElementById('facilityTitle').textContent = db.settings.facilityName;
     renderStamp();
     renderHonbu();
@@ -1595,7 +1889,7 @@
         renderNishi();
         applyRoleUI();
       })
-      .catch(function () { renderNishi(); applyRoleUI(); });
+      .catch(function () { renderNishi(); updateMessageAreas(); applyRoleUI(); });
   })();
 })();
   </script>
