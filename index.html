@@ -631,12 +631,14 @@
     return sk.initial - (Number(s.nishiReplenishTotal) || 0) - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
+  /** 日用品・倉庫在庫 = 初期 - 納品累計(deliveryTotal) - 納品入力中(deliveryCount) - 南卸累計 + 倉庫補充累計 */
   function dailySoko(p) {
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
     var d = db.daily[p] || defDailyRow();
     return sk.initial
       - (Number(d.deliveryTotal) || 0)
+      - (Number(d.deliveryCount) || 0)
       - (Number(d.minamiIssuedTotal) || 0)
       + (Number(d.sokoReplenishTotal) || 0);
   }
@@ -1038,6 +1040,29 @@
     else if (role === 'nishi') activateTab('nishi');
   }
 
+  function findHonbuDailyTrByProduct(p) {
+    var tb = document.getElementById('honbu-daily-tbody');
+    if (!tb) return null;
+    var inps = tb.querySelectorAll('input.h-dv');
+    for (var i = 0; i < inps.length; i++) {
+      if (inps[i].getAttribute('data-p') === p) {
+        var tr = inps[i].closest('tr');
+        return tr || null;
+      }
+    }
+    return null;
+  }
+  function updateHonbuDailySokoForProduct(p) {
+    var tr = findHonbuDailyTrByProduct(p);
+    if (!tr) return;
+    ensureProductRows();
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var sk2 = dailySoko(p);
+    var stD = statusFromSokoStock(p);
+    if (tr.cells[5]) tr.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
+    if (tr.cells[8]) tr.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
+  }
+
   function renderHonbu() {
     ensureProductRows();
     updateHonbuDiscrepancyBanner();
@@ -1170,6 +1195,7 @@
         if (!pr) return;
         syncDeliveryFromInp();
         saveDb();
+        updateHonbuDailySokoForProduct(pr);
         renderNishi();
       });
       inp.addEventListener('keydown', function (e) {
