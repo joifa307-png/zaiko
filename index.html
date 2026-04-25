@@ -1179,6 +1179,7 @@
       b2.setAttribute('data-p', p);
       tr2.cells[6].appendChild(document.createTextNode(' '));
       tr2.cells[6].appendChild(b2);
+      b2.style.display = (Number(d0.sokoReplenish) || 0) > 0 ? '' : 'none';
       tr2.cells[7].textContent = '—';
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
       dtb.appendChild(tr2);
@@ -1215,6 +1216,8 @@
         if (!db.daily[pr]) return;
         db.daily[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.daily[pr].sokoReplenish)) db.daily[pr].sokoReplenish = 0;
+        var b3 = document.querySelector('#honbu-daily-tbody button[data-act="hon-daily-soko"][data-p="' + pr + '"]');
+        if (b3) b3.style.display = (Number(db.daily[pr].sokoReplenish) || 0) > 0 ? '' : 'none';
         saveDb();
         renderNishi();
         scheduleOperationalSync('honbu-daily-soko-replenish');
