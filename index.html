@@ -230,7 +230,7 @@
                 <th class="col-south col-divide">南卸数(入力)</th>
                 <th class="col-soko">倉庫在庫</th>
                 <th class="col-soko">倉庫補充(入力)</th>
-                <th>確認</th>
+                <th>操作</th>
                 <th>状態</th>
               </tr>
             </thead>
@@ -1110,43 +1110,23 @@
           if (isNaN(db.daily[product].deliveryCount)) db.daily[product].deliveryCount = 0;
           console.log('deliveryCount更新:', product, db.daily[product].deliveryCount);
         }
-        function postDeliveryCommit() {
-          var now = Date.now();
-          if (now - (dvInp._lastDdvGAS || 0) < 450) return;
-          dvInp._lastDdvGAS = now;
-          syncDeliveryFromInp();
-          var sen = getSender() || '未記入';
-          db.lastSynced = nowStamp();
-          db.lastSyncedBy = sen;
-          saveDb();
-          return postGAS({ skipSuccessAlert: true })
-            .then(function () {
-              renderHonbu();
-              renderNishi();
-              var info = document.getElementById('honbu-info');
-              if (info) info.textContent = 'GAS 送信（本部・納品数）: ' + nowStamp();
-            });
-        }
-        var skipBlur = false;
         dvInp.addEventListener('input', function () {
           syncDeliveryFromInp();
           saveDb();
           renderNishi();
-        });
-        dvInp.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            skipBlur = true;
-            postDeliveryCommit();
-            setTimeout(function () { skipBlur = false; }, 100);
-          }
-        });
-        dvInp.addEventListener('change', function () { postDeliveryCommit(); });
-        dvInp.addEventListener('blur', function () {
-          if (skipBlur) return;
-          postDeliveryCommit();
+          scheduleOperationalSync('honbu-delivery-input');
         });
       })(p);
+      if ((Number(d0.deliveryCount) || 0) > 0) {
+        var btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'btn btn-ghost';
+        btnDel.textContent = '納品確認';
+        btnDel.setAttribute('data-act', 'hon-daily-delivery');
+        btnDel.setAttribute('data-p', p);
+        tr2.cells[3].appendChild(document.createTextNode(' '));
+        tr2.cells[3].appendChild(btnDel);
+      }
       tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" id="honbu-mi-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
       var miInp = tr2.cells[4].querySelector('input');
       miInp.value = d0.minamiIssued != null && d0.minamiIssued !== '' ? d0.minamiIssued : '';
@@ -1165,6 +1145,16 @@
           scheduleOperationalSync('honbu-minami-issued');
         });
       })(p);
+      if ((Number(d0.minamiIssued) || 0) > 0) {
+        var btnMin = document.createElement('button');
+        btnMin.type = 'button';
+        btnMin.className = 'btn btn-ghost';
+        btnMin.textContent = '南卸確認';
+        btnMin.setAttribute('data-act', 'hon-daily-minami');
+        btnMin.setAttribute('data-p', p);
+        tr2.cells[4].appendChild(document.createTextNode(' '));
+        tr2.cells[4].appendChild(btnMin);
+      }
       tr2.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
       tr2.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-dsr" data-p="" style="width:4.5rem" />';
       tr2.cells[6].querySelector('input').value = d0.sokoReplenish != null && d0.sokoReplenish !== '' ? d0.sokoReplenish : '';
@@ -1173,9 +1163,11 @@
       b2.type = 'button';
       b2.className = 'btn';
       b2.textContent = '受取';
-      b2.setAttribute('data-act', 'hon-daily');
+      b2.setAttribute('data-act', 'hon-daily-soko');
       b2.setAttribute('data-p', p);
-      tr2.cells[7].appendChild(b2);
+      tr2.cells[6].appendChild(document.createTextNode(' '));
+      tr2.cells[6].appendChild(b2);
+      tr2.cells[7].textContent = '—';
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
       dtb.appendChild(tr2);
     });
@@ -1231,32 +1223,61 @@
       .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・パット確認）'; });
   }
 
-  function doHonbuDailyConfirm(p) {
+  function doHonbuDailyDeliveryConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名を入力してください。'); return; }
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
-    if (p === 'トイレットペーパー') {
-      console.log('doHonbuDailyConfirm前 トイレットペーパー:', { nishiOrder: d0.nishiOrder, nishiOrderDate: d0.nishiOrderDate });
-    }
     var dc = Number(d0.deliveryCount) || 0;
-    var mi = Number(d0.minamiIssued) || 0;
-    var b = Number(d0.sokoReplenish) || 0;
-    if (dc > 0) d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + dc;
-    if (mi > 0) d0.minamiIssuedTotal = (Number(d0.minamiIssuedTotal) || 0) + mi;
-    if (b > 0) d0.sokoReplenishTotal = (Number(d0.sokoReplenishTotal) || 0) + b;
+    if (dc <= 0) return;
+    d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + dc;
     d0.deliveryCount = 0;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS().then(function () {
+      renderHonbu();
+      renderNishi();
+      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・納品確認）';
+    });
+  }
+
+  function doHonbuDailyMinamiConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var d0 = db.daily[p];
+    var mi = Number(d0.minamiIssued) || 0;
+    if (mi <= 0) return;
+    d0.minamiIssuedTotal = (Number(d0.minamiIssuedTotal) || 0) + mi;
     d0.minamiIssued = 0;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS().then(function () {
+      renderHonbu();
+      renderNishi();
+      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・南卸確認）';
+    });
+  }
+
+  function doHonbuDailySokoConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var d0 = db.daily[p];
+    var b = Number(d0.sokoReplenish) || 0;
+    if (b <= 0) return;
+    d0.sokoReplenishTotal = (Number(d0.sokoReplenishTotal) || 0) + b;
     d0.sokoReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
-      .then(function () {
-        renderHonbu();
-        renderNishi();
-        document.getElementById('honbu-info').textContent = 'GAS 送信（本部・日用品確認）';
-      });
+    return postGAS().then(function () {
+      renderHonbu();
+      renderNishi();
+      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・倉庫受取）';
+    });
   }
 
   function renderNishi() {
@@ -1525,7 +1546,9 @@
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!t) return;
     if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
-    if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily-minami') { doHonbuDailyMinamiConfirm(t.getAttribute('data-p')); }
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
