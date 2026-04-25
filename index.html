@@ -1070,18 +1070,30 @@
       tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
       tr.cells[3].querySelector('input').value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
       tr.cells[3].querySelector('input').setAttribute('data-p', p);
+      var btnPatNishi = document.createElement('button');
+      btnPatNishi.type = 'button';
+      btnPatNishi.className = 'btn btn-ghost';
+      btnPatNishi.textContent = '西補充確認';
+      btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
+      btnPatNishi.setAttribute('data-p', p);
+      tr.cells[3].appendChild(document.createTextNode(' '));
+      tr.cells[3].appendChild(btnPatNishi);
+      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 ? '' : 'none';
       tr.cells[4].textContent = String(mAll);
       tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
       tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
       tr.cells[6].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
       tr.cells[6].querySelector('input').setAttribute('data-p', p);
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn';
-      btn.textContent = '受取';
-      btn.setAttribute('data-act', 'hon-pat');
-      btn.setAttribute('data-p', p);
-      tr.cells[7].appendChild(btn);
+      var btnPatSoko = document.createElement('button');
+      btnPatSoko.type = 'button';
+      btnPatSoko.className = 'btn';
+      btnPatSoko.textContent = '倉庫受取';
+      btnPatSoko.setAttribute('data-act', 'hon-pat-soko');
+      btnPatSoko.setAttribute('data-p', p);
+      tr.cells[6].appendChild(document.createTextNode(' '));
+      tr.cells[6].appendChild(btnPatSoko);
+      btnPatSoko.style.display = (Number(s.sokoReplenish) || 0) > 0 ? '' : 'none';
+      tr.cells[7].textContent = '—';
       tr.cells[8].innerHTML = '<span class="' + badgeClass(stH.k) + '">' + stH.label + '</span>';
       ptb.appendChild(tr);
     });
@@ -1177,6 +1189,8 @@
         if (!db.supply[pr]) return;
         db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
+        var b1 = document.querySelector('#honbu-pat-tbody button[data-act="hon-pat-nishi"][data-p="' + pr + '"]');
+        if (b1) b1.style.display = (Number(db.supply[pr].nishiReplenish) || 0) > 0 ? '' : 'none';
         saveDb();
         renderNishi();
         scheduleOperationalSync('honbu-nishi-replenish');
@@ -1188,6 +1202,8 @@
         if (!db.supply[pr]) return;
         db.supply[pr].sokoReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.supply[pr].sokoReplenish)) db.supply[pr].sokoReplenish = 0;
+        var b2 = document.querySelector('#honbu-pat-tbody button[data-act="hon-pat-soko"][data-p="' + pr + '"]');
+        if (b2) b2.style.display = (Number(db.supply[pr].sokoReplenish) || 0) > 0 ? '' : 'none';
         saveDb();
         renderNishi();
         scheduleOperationalSync('honbu-soko-replenish');
@@ -1207,20 +1223,36 @@
     updateMessageAreas();
   }
 
-  function doHonbuPatConfirm(p) {
+  function doHonbuPatNishiConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名を入力してください。'); return; }
     ensureProductRows();
     var s = db.supply[p];
     var a = s.nishiReplenish > 0 ? s.nishiReplenish : 0;
-    var b = s.sokoReplenish > 0 ? s.sokoReplenish : 0;
-    if (a > 0) { s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + a; s.nishiReplenish = 0; }
-    if (b > 0) { s.sokoReplenishTotal = (Number(s.sokoReplenishTotal) || 0) + b; s.sokoReplenish = 0; }
+    if (a <= 0) return;
+    s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + a;
+    s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
     return postGAS()
-      .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・パット確認）'; });
+      .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・西補充確認）'; });
+  }
+
+  function doHonbuPatSokoConfirm(p) {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    ensureProductRows();
+    var s = db.supply[p];
+    var b = s.sokoReplenish > 0 ? s.sokoReplenish : 0;
+    if (b <= 0) return;
+    s.sokoReplenishTotal = (Number(s.sokoReplenishTotal) || 0) + b;
+    s.sokoReplenish = 0;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS()
+      .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・倉庫受取）'; });
   }
 
   function doHonbuDailyDeliveryConfirm(p) {
@@ -1545,7 +1577,8 @@
     console.log('確認ボタン押下');
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!t) return;
-    if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-pat-nishi') { doHonbuPatNishiConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-pat-soko') { doHonbuPatSokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-minami') { doHonbuDailyMinamiConfirm(t.getAttribute('data-p')); }
