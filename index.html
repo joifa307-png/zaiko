@@ -537,6 +537,7 @@
   }
 
   var db = loadDb();
+  try { window.__ZAIKO_DB = db; } catch (e) {}
   var weekMonday = getMonday(new Date());
   if (!localStorage.getItem('zaiko_week_mon')) {
     try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
@@ -1109,7 +1110,7 @@
       ptb.appendChild(tr);
     });
 
-    db.settings.dailyProducts.forEach(function (p) {
+    db.settings.dailyProducts.forEach(function (p, dIdx) {
       if (!db.daily[p]) db.daily[p] = defDailyRow();
       var d0 = db.daily[p];
       var sk2 = dailySoko(p);
@@ -1121,9 +1122,56 @@
       tr2.cells[0].textContent = p;
       tr2.cells[1].textContent = String(d0.nishiOrder != null ? d0.nishiOrder : 0);
       tr2.cells[2].textContent = formatNishiOrderLineHonbu(d0);
-      tr2.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-dv" data-p="" style="width:4.5rem" />';
-      tr2.cells[3].querySelector('input').value = d0.deliveryCount != null ? d0.deliveryCount : '';
-      tr2.cells[3].querySelector('input').setAttribute('data-p', p);
+      tr2.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-dv" id="honbu-dv-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
+      var dvInp = tr2.cells[3].querySelector('input');
+      dvInp.value = d0.deliveryCount != null && d0.deliveryCount !== '' ? d0.deliveryCount : '';
+      dvInp.setAttribute('data-p', p);
+      dvInp.setAttribute('data-product', p);
+      (function (product) {
+        function syncDeliveryFromInp() {
+          if (!db.daily[product]) db.daily[product] = defDailyRow();
+          db.daily[product].deliveryCount = dvInp.value === '' ? 0 : parseFloat(dvInp.value);
+          if (isNaN(db.daily[product].deliveryCount)) db.daily[product].deliveryCount = 0;
+          console.log('deliveryCount更新:', product, db.daily[product].deliveryCount);
+        }
+        function postDeliveryCommit() {
+          var now = Date.now();
+          if (now - (dvInp._lastDdvGAS || 0) < 450) return;
+          dvInp._lastDdvGAS = now;
+          syncDeliveryFromInp();
+          var sen = getSender() || '未記入';
+          db.lastSynced = nowStamp();
+          db.lastSyncedBy = sen;
+          saveDb();
+          return postGAS({ skipSuccessAlert: true })
+            .then(function () {
+              renderHonbu();
+              renderNishi();
+              var info = document.getElementById('honbu-info');
+              if (info) info.textContent = 'GAS 送信（本部・納品数）: ' + nowStamp();
+            });
+        }
+        var skipBlur = false;
+        dvInp.addEventListener('input', function () {
+          syncDeliveryFromInp();
+          saveDb();
+          updateHonbuDailySokoForProduct(product);
+          renderNishi();
+        });
+        dvInp.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            skipBlur = true;
+            postDeliveryCommit();
+            setTimeout(function () { skipBlur = false; }, 100);
+          }
+        });
+        dvInp.addEventListener('change', function () { postDeliveryCommit(); });
+        dvInp.addEventListener('blur', function () {
+          if (skipBlur) return;
+          postDeliveryCommit();
+        });
+      })(p);
       tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" data-p="" style="width:4.5rem" />';
       tr2.cells[4].querySelector('input').value = d0.minamiIssued != null ? d0.minamiIssued : '';
       tr2.cells[4].querySelector('input').setAttribute('data-p', p);
@@ -1161,57 +1209,6 @@
         saveDb();
         renderNishi();
         scheduleOperationalSync('honbu-soko-replenish');
-      });
-    });
-    document.querySelectorAll('.h-dv').forEach(function (inp) {
-      function syncDeliveryFromInp() {
-        var pr = inp.getAttribute('data-p');
-        if (!pr) return;
-        if (!db.daily[pr]) db.daily[pr] = defDailyRow();
-        db.daily[pr].deliveryCount = inp.value === '' ? 0 : parseFloat(inp.value);
-        if (isNaN(db.daily[pr].deliveryCount)) db.daily[pr].deliveryCount = 0;
-      }
-      function postDeliveryCommit() {
-        var now = Date.now();
-        if (now - (inp._lastDdvGAS || 0) < 450) return;
-        inp._lastDdvGAS = now;
-        syncDeliveryFromInp();
-        var pr = inp.getAttribute('data-p');
-        var sen = getSender() || '未記入';
-        db.lastSynced = nowStamp();
-        db.lastSyncedBy = sen;
-        saveDb();
-        return postGAS({ skipSuccessAlert: true })
-          .then(function () {
-            renderHonbu();
-            renderNishi();
-            var info = document.getElementById('honbu-info');
-            if (info) info.textContent = 'GAS 送信（本部・納品数）: ' + nowStamp();
-          });
-      }
-      var skipBlur = false;
-      inp.addEventListener('input', function () {
-        var pr = inp.getAttribute('data-p');
-        if (!pr) return;
-        syncDeliveryFromInp();
-        saveDb();
-        updateHonbuDailySokoForProduct(pr);
-        renderNishi();
-      });
-      inp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          skipBlur = true;
-          postDeliveryCommit();
-          setTimeout(function () { skipBlur = false; }, 100);
-        }
-      });
-      inp.addEventListener('change', function () {
-        postDeliveryCommit();
-      });
-      inp.addEventListener('blur', function () {
-        if (skipBlur) return;
-        postDeliveryCommit();
       });
     });
     document.querySelectorAll('.h-mi').forEach(function (inp) {
