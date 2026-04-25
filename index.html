@@ -632,7 +632,7 @@
     return sk.initial - (Number(s.nishiReplenishTotal) || 0) - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
-  /** 日用品・倉庫在庫 = 初期 - 納品累計(deliveryTotal) - 納品入力中(deliveryCount) - 南卸累計 + 倉庫補充累計 */
+  /** 日用品・倉庫在庫 = 初期 - deliveryTotal - deliveryCount - minamiIssuedTotal - minamiIssued(入力中) + sokoReplenishTotal */
   function dailySoko(p) {
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
@@ -641,6 +641,7 @@
       - (Number(d.deliveryTotal) || 0)
       - (Number(d.deliveryCount) || 0)
       - (Number(d.minamiIssuedTotal) || 0)
+      - (Number(d.minamiIssued) || 0)
       + (Number(d.sokoReplenishTotal) || 0);
   }
 
