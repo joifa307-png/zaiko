@@ -137,18 +137,32 @@
     .slist .nm { flex: 1; min-width: 6rem; }
     .slist-head { display: flex; align-items: center; gap: 0.35rem; margin: 0.2rem 0; font-size: 0.88rem; color: var(--muted); }
     .slist-head .nm { flex: 1; min-width: 6rem; }
-    .honbu-disc-box {
+    .honbu-disc-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
       margin: 0.5rem 0 0.75rem;
+    }
+    .honbu-disc-box {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
       padding: 0.65rem 0.85rem;
       border: 1px solid #fecaca;
       background: #fff7f7;
       border-radius: 4px;
     }
     .honbu-disc-box p, .honbu-disc-box p.disc-line { margin: 0.2rem 0; color: #b91c1c; font-size: 0.95rem; }
+    .honbu-disc-confirm { flex-shrink: 0; margin-top: 0.1rem; }
     .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
-    .comms-input-row { max-width: 32rem; margin: 0.4rem auto 0; text-align: left; }
-    .comms-input-row .comms-ta { width: 100%; min-height: 2.5rem; resize: vertical; }
-    .comms-actions { text-align: right; margin-top: 0.35rem; }
+    .comms-input-row { max-width: 36rem; margin: 0.4rem auto 0; }
+    .comms-input-row--inline {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .comms-input-row--inline .comms-ta { flex: 1; min-width: 0; min-height: 2.5rem; resize: vertical; }
+    .comms-input-row--inline .btn { flex-shrink: 0; align-self: flex-start; margin-top: 0.05rem; }
   </style>
 </head>
 <body>
@@ -174,14 +188,15 @@
         <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
         <p class="error-msg" id="honbu-err" hidden></p>
-        <div id="honbu-disc-box" class="honbu-disc-box" hidden></div>
+        <div id="honbu-disc-wrap" class="honbu-disc-wrap" hidden>
+          <div id="honbu-disc-lines" class="honbu-disc-box"></div>
+          <button type="button" class="btn honbu-disc-confirm" id="honbu-disc-confirm">確認</button>
+        </div>
         <div id="honbu-comms" style="text-align:center; margin: 0.5rem 0 0.75rem;">
           <p class="comms-line" id="honbu-msg-latest">（直近のメッセージはありません）</p>
-          <div class="comms-input-row">
+          <div class="comms-input-row comms-input-row--inline">
             <textarea class="comms-ta" id="honbu-msg-inp" rows="2" placeholder="メッセージを入力"></textarea>
-            <div class="comms-actions">
-              <button type="button" class="btn" id="honbu-msg-send">送信</button>
-            </div>
+            <button type="button" class="btn" id="honbu-msg-send">送信</button>
           </div>
         </div>
         <div class="section-title"><h2>パット類</h2></div>
@@ -245,11 +260,9 @@
         </div>
         <div id="nishi-comms" style="text-align: center; margin: 0.6rem 0; max-width: 36rem; margin-left: auto; margin-right: auto;">
           <p class="comms-line" id="nishi-msg-latest">（直近のメッセージはありません）</p>
-          <div class="comms-input-row">
+          <div class="comms-input-row comms-input-row--inline">
             <textarea class="comms-ta" id="nishi-msg-inp" rows="2" placeholder="メッセージを入力"></textarea>
-            <div class="comms-actions">
-              <button type="button" class="btn" id="nishi-msg-send">送信</button>
-            </div>
+            <button type="button" class="btn" id="nishi-msg-send">送信</button>
           </div>
         </div>
         <div class="section-title"><h2>パット類</h2></div>
@@ -652,18 +665,6 @@
   function hasOpenDiscrepancy(x) {
     return !!(x && x.discrepancy && x.discrepancy.resolved === false && Number(x.discrepancy.diff) !== 0);
   }
-  function discrepancyText(name, d) {
-    if (!d) return name + ': 差異情報なし';
-    var sign = Number(d.diff) > 0 ? '+' : '';
-    return name + '：予定' + d.expected + '個 → 実受取' + d.actual + '個（' + sign + d.diff + '個）' + (d.date ? (' ' + d.date) : '');
-  }
-  function discrepancyBadgeLabel(d) {
-    if (!d) return '⚠ 差異あり';
-    var diff = Number(d.diff) || 0;
-    if (diff < 0) return '⚠ 予定より' + Math.abs(diff) + '個少ないようです';
-    if (diff > 0) return '⚠ 予定より' + diff + '個多いようです';
-    return '⚠ 差異あり';
-  }
   function discrepancyPlainMessage(d) {
     if (!d) return '';
     var diff = Number(d.diff) || 0;
@@ -672,8 +673,9 @@
     return '';
   }
   function updateHonbuDiscrepancyBanner() {
-    var box = document.getElementById('honbu-disc-box');
-    if (!box) return;
+    var wrap = document.getElementById('honbu-disc-wrap');
+    var linesBox = document.getElementById('honbu-disc-lines');
+    if (!wrap || !linesBox) return;
     var lines = [];
     ensureProductRows();
     (db.settings.supplyProducts || []).forEach(function (p) {
@@ -689,12 +691,47 @@
       }
     });
     if (lines.length === 0) {
-      box.innerHTML = '';
-      box.setAttribute('hidden', '');
+      linesBox.innerHTML = '';
+      wrap.setAttribute('hidden', '');
     } else {
-      box.removeAttribute('hidden');
-      box.innerHTML = lines.map(function (L) { return '<p class="disc-line">' + L + '</p>'; }).join('');
+      wrap.removeAttribute('hidden');
+      linesBox.innerHTML = lines.map(function (L) { return '<p class="disc-line">' + L + '</p>'; }).join('');
     }
+  }
+  function resolveAllOpenDiscrepancies() {
+    ensureProductRows();
+    var any = false;
+    (db.settings.supplyProducts || []).forEach(function (p) {
+      if (!db.supply[p] || !hasOpenDiscrepancy(db.supply[p])) return;
+      if (!db.supply[p].discrepancy || typeof db.supply[p].discrepancy !== 'object') {
+        db.supply[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+      }
+      db.supply[p].discrepancy.resolved = true;
+      any = true;
+    });
+    (db.settings.dailyProducts || []).forEach(function (p) {
+      if (!db.daily[p] || !hasOpenDiscrepancy(db.daily[p])) return;
+      if (!db.daily[p].discrepancy || typeof db.daily[p].discrepancy !== 'object') {
+        db.daily[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+      }
+      db.daily[p].discrepancy.resolved = true;
+      any = true;
+    });
+    if (!any) {
+      updateHonbuDiscrepancyBanner();
+      return;
+    }
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        updateHonbuDiscrepancyBanner();
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '差異を一括確認済み: ' + nowStamp();
+      });
   }
   function formatMessageForDisplay() {
     ensureProductRows();
@@ -1068,10 +1105,6 @@
       btn.setAttribute('data-p', p);
       tr.cells[7].appendChild(btn);
       tr.cells[8].innerHTML = '<span class="' + badgeClass(stH.k) + '">' + stH.label + '</span>';
-      if (hasOpenDiscrepancy(s)) {
-        tr.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" style="background:#fecaca;color:#991b1b" data-act="disc-view" data-kind="supply" data-p="' + escapeAttr(p) + '">' + escapeText(discrepancyBadgeLabel(s.discrepancy)) + '</button>' +
-          ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="supply" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
-      }
       ptb.appendChild(tr);
     });
 
@@ -1105,10 +1138,6 @@
       b2.setAttribute('data-p', p);
       tr2.cells[7].appendChild(b2);
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
-      if (hasOpenDiscrepancy(d0)) {
-        tr2.cells[8].innerHTML += ' <button type="button" class="btn btn-ghost" style="background:#fecaca;color:#991b1b" data-act="disc-view" data-kind="daily" data-p="' + escapeAttr(p) + '">' + escapeText(discrepancyBadgeLabel(d0.discrepancy)) + '</button>' +
-          ' <button type="button" class="btn btn-ghost" data-act="disc-resolve" data-kind="daily" data-p="' + escapeAttr(p) + '">差異を確認済み</button>';
-      }
       dtb.appendChild(tr2);
     });
     document.querySelectorAll('.h-nr').forEach(function (inp) {
@@ -1474,15 +1503,6 @@
     return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
   }
 
-  function resolveDiscrepancy(kind, p) {
-    var row = kind === 'supply' ? db.supply[p] : db.daily[p];
-    if (!row) return;
-    if (!row.discrepancy || typeof row.discrepancy !== 'object') row.discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
-    row.discrepancy.resolved = true;
-    saveDb();
-    return postGAS().then(function () { updateHonbuDiscrepancyBanner(); renderHonbu(); renderNishi(); });
-  }
-
   function doNishiOrderAll() {
     if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
     if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
@@ -1528,13 +1548,6 @@
     if (!t) return;
     if (t.getAttribute('data-act') === 'hon-pat') { doHonbuPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily') { doHonbuDailyConfirm(t.getAttribute('data-p')); }
-    if (t.getAttribute('data-act') === 'disc-view') {
-      var kindV = t.getAttribute('data-kind');
-      var pV = t.getAttribute('data-p');
-      var rowV = kindV === 'supply' ? db.supply[pV] : db.daily[pV];
-      alert(discrepancyText(pV, rowV && rowV.discrepancy));
-    }
-    if (t.getAttribute('data-act') === 'disc-resolve') { resolveDiscrepancy(t.getAttribute('data-kind'), t.getAttribute('data-p')); }
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
@@ -1875,6 +1888,8 @@
     var nsSend = document.getElementById('nishi-msg-send');
     if (hbSend) hbSend.addEventListener('click', function () { sendCommsMessage('本部'); });
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
+    var discConf = document.getElementById('honbu-disc-confirm');
+    if (discConf) discConf.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
     document.getElementById('facilityTitle').textContent = db.settings.facilityName;
     renderStamp();
     renderHonbu();
