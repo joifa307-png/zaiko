@@ -1103,6 +1103,15 @@
       dvInp.value = d0.deliveryCount != null && d0.deliveryCount !== '' ? d0.deliveryCount : '';
       dvInp.setAttribute('data-p', p);
       dvInp.setAttribute('data-product', p);
+      var btnDel = document.createElement('button');
+      btnDel.type = 'button';
+      btnDel.className = 'btn btn-ghost';
+      btnDel.textContent = '納品確認';
+      btnDel.setAttribute('data-act', 'hon-daily-delivery');
+      btnDel.setAttribute('data-p', p);
+      tr2.cells[3].appendChild(document.createTextNode(' '));
+      tr2.cells[3].appendChild(btnDel);
+      btnDel.style.display = (Number(d0.deliveryCount) || 0) > 0 ? '' : 'none';
       (function (product) {
         function syncDeliveryFromInp() {
           if (!db.daily[product]) db.daily[product] = defDailyRow();
@@ -1112,26 +1121,26 @@
         }
         dvInp.addEventListener('input', function () {
           syncDeliveryFromInp();
+          btnDel.style.display = (Number(db.daily[product].deliveryCount) || 0) > 0 ? '' : 'none';
           saveDb();
           renderNishi();
           scheduleOperationalSync('honbu-delivery-input');
         });
       })(p);
-      if ((Number(d0.deliveryCount) || 0) > 0) {
-        var btnDel = document.createElement('button');
-        btnDel.type = 'button';
-        btnDel.className = 'btn btn-ghost';
-        btnDel.textContent = '納品確認';
-        btnDel.setAttribute('data-act', 'hon-daily-delivery');
-        btnDel.setAttribute('data-p', p);
-        tr2.cells[3].appendChild(document.createTextNode(' '));
-        tr2.cells[3].appendChild(btnDel);
-      }
       tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" id="honbu-mi-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
       var miInp = tr2.cells[4].querySelector('input');
       miInp.value = d0.minamiIssued != null && d0.minamiIssued !== '' ? d0.minamiIssued : '';
       miInp.setAttribute('data-p', p);
       miInp.setAttribute('data-product', p);
+      var btnMin = document.createElement('button');
+      btnMin.type = 'button';
+      btnMin.className = 'btn btn-ghost';
+      btnMin.textContent = '南卸確認';
+      btnMin.setAttribute('data-act', 'hon-daily-minami');
+      btnMin.setAttribute('data-p', p);
+      tr2.cells[4].appendChild(document.createTextNode(' '));
+      tr2.cells[4].appendChild(btnMin);
+      btnMin.style.display = (Number(d0.minamiIssued) || 0) > 0 ? '' : 'none';
       (function (product) {
         function syncMinamiFromInp() {
           if (!db.daily[product]) db.daily[product] = defDailyRow();
@@ -1141,20 +1150,11 @@
         }
         miInp.addEventListener('input', function () {
           syncMinamiFromInp();
+          btnMin.style.display = (Number(db.daily[product].minamiIssued) || 0) > 0 ? '' : 'none';
           saveDb();
           scheduleOperationalSync('honbu-minami-issued');
         });
       })(p);
-      if ((Number(d0.minamiIssued) || 0) > 0) {
-        var btnMin = document.createElement('button');
-        btnMin.type = 'button';
-        btnMin.className = 'btn btn-ghost';
-        btnMin.textContent = '南卸確認';
-        btnMin.setAttribute('data-act', 'hon-daily-minami');
-        btnMin.setAttribute('data-p', p);
-        tr2.cells[4].appendChild(document.createTextNode(' '));
-        tr2.cells[4].appendChild(btnMin);
-      }
       tr2.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
       tr2.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-dsr" data-p="" style="width:4.5rem" />';
       tr2.cells[6].querySelector('input').value = d0.sokoReplenish != null && d0.sokoReplenish !== '' ? d0.sokoReplenish : '';
