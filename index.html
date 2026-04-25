@@ -1855,8 +1855,9 @@
         var j = JSON.parse(raw);
         var cands = [
           j && j.settings && j.settings.supplyProducts,
-          j && j.db && j.db.settings && j.db.settings && j.db.settings.supplyProducts,
-          j && j.db && j.db.settings && j.db.settings.supplyProducts
+          j && j.db && j.db.settings && j.db.settings.supplyProducts,
+          j && j.db && j.db.supplyProducts,
+          j && j.supplyProducts
         ];
         for (var i = 0; i < cands.length; i++) {
           if (Array.isArray(cands[i]) && cands[i].length) { found = cands[i].map(String); return; }
