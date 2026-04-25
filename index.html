@@ -1172,9 +1172,26 @@
           postDeliveryCommit();
         });
       })(p);
-      tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" data-p="" style="width:4.5rem" />';
-      tr2.cells[4].querySelector('input').value = d0.minamiIssued != null ? d0.minamiIssued : '';
-      tr2.cells[4].querySelector('input').setAttribute('data-p', p);
+      tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" id="honbu-mi-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
+      var miInp = tr2.cells[4].querySelector('input');
+      miInp.value = d0.minamiIssued != null && d0.minamiIssued !== '' ? d0.minamiIssued : '';
+      miInp.setAttribute('data-p', p);
+      miInp.setAttribute('data-product', p);
+      (function (product) {
+        function syncMinamiFromInp() {
+          if (!db.daily[product]) db.daily[product] = defDailyRow();
+          db.daily[product].minamiIssued = miInp.value === '' ? 0 : parseFloat(miInp.value);
+          if (isNaN(db.daily[product].minamiIssued)) db.daily[product].minamiIssued = 0;
+          console.log('minamiIssued更新:', product, db.daily[product].minamiIssued);
+        }
+        miInp.addEventListener('input', function () {
+          syncMinamiFromInp();
+          saveDb();
+          updateHonbuDailySokoForProduct(product);
+          renderNishi();
+          scheduleOperationalSync('honbu-minami-issued');
+        });
+      })(p);
       tr2.cells[5].textContent = sk2 != null && !isNaN(sk2) ? String(Math.round(sk2 * 100) / 100) : '—';
       tr2.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-dsr" data-p="" style="width:4.5rem" />';
       tr2.cells[6].querySelector('input').value = d0.sokoReplenish != null && d0.sokoReplenish !== '' ? d0.sokoReplenish : '';
@@ -1209,17 +1226,6 @@
         saveDb();
         renderNishi();
         scheduleOperationalSync('honbu-soko-replenish');
-      });
-    });
-    document.querySelectorAll('.h-mi').forEach(function (inp) {
-      inp.addEventListener('input', function () {
-        var pr = inp.getAttribute('data-p');
-        if (!db.daily[pr]) return;
-        db.daily[pr].minamiIssued = inp.value === '' ? 0 : parseFloat(inp.value);
-        if (isNaN(db.daily[pr].minamiIssued)) db.daily[pr].minamiIssued = 0;
-        saveDb();
-        renderNishi();
-        scheduleOperationalSync('honbu-minami-issued');
       });
     });
     document.querySelectorAll('.h-dsr').forEach(function (inp) {
