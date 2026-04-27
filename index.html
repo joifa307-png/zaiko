@@ -187,7 +187,7 @@
             <label for="global-sender">操作者名（GAS送信用）</label><br />
             <input type="text" id="global-sender" placeholder="必ず入力" />
           </div>
-          <button type="button" class="btn" id="btn-sync-get">データ送受信</button>
+          <button type="button" class="btn" id="btn-sync-get" data-sync-restore="データ送受信">データ送受信</button>
         </div>
         <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
@@ -253,7 +253,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
-              <button type="button" class="btn" id="btn-sync-get-nishi">データ送受信</button>
+              <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
             <p class="meta-line" id="nishi-stamp">最終更新: なし</p>
           </div>
@@ -1686,10 +1686,32 @@
   }
   document.querySelectorAll('.tab-btn').forEach(function (b) { b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); }); });
 
+  var syncGetBtnRestoreTimer = null;
   function runManualSyncGet() {
     console.log('取得ボタン押下');
+    if (syncGetBtnRestoreTimer) {
+      try { clearTimeout(syncGetBtnRestoreTimer); } catch (e) {}
+      syncGetBtnRestoreTimer = null;
+    }
     var el = document.getElementById('honbu-err');
-    el.hidden = true;
+    if (el) el.hidden = true;
+    var syncBtns = [document.getElementById('btn-sync-get'), document.getElementById('btn-sync-get-nishi')].filter(function (b) { return b; });
+    function restoreSyncBtnLabels() {
+      syncBtns.forEach(function (b) {
+        var d = b.getAttribute('data-sync-restore');
+        b.textContent = d != null && d !== '' ? d : b.textContent;
+      });
+    }
+    function scheduleSyncBtnRestore() {
+      syncGetBtnRestoreTimer = setTimeout(function () {
+        syncGetBtnRestoreTimer = null;
+        restoreSyncBtnLabels();
+      }, 2000);
+    }
+    syncBtns.forEach(function (b) {
+      b.disabled = true;
+      b.textContent = '同期中...';
+    });
     return getGAS()
       .then(function (r) { return r.text(); })
       .then(function (t) {
@@ -1698,9 +1720,22 @@
         renderStamp();
         renderHonbu();
         renderNishi();
-        document.getElementById('honbu-info').textContent = 'GAS から取り込み: ' + nowStamp();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = 'GAS から取り込み: ' + nowStamp();
+        syncBtns.forEach(function (b) {
+          b.disabled = false;
+          b.textContent = '取得済 ✓';
+        });
+        scheduleSyncBtnRestore();
       })
-      .catch(function (e) { el.textContent = String(e); el.hidden = false; });
+      .catch(function (e) {
+        if (el) { el.textContent = String(e); el.hidden = false; }
+        syncBtns.forEach(function (b) {
+          b.disabled = false;
+          b.textContent = 'エラー ✗';
+        });
+        scheduleSyncBtnRestore();
+      });
   }
   function onSettingsInput(e) {
     if (e.target && e.target.classList && e.target.classList.contains('s-n')) {
