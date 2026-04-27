@@ -1579,6 +1579,46 @@
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
 
+  function resetAllCumulativeTestData() {
+    if (!confirm('すべての累計データをリセットします。よろしいですか？')) return;
+    ensureProductRows();
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      db.supply[p].nishiReplenishTotal = 0;
+      db.supply[p].sokoReplenishTotal = 0;
+      db.supply[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+    });
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      db.daily[p].deliveryTotal = 0;
+      db.daily[p].minamiIssuedTotal = 0;
+      db.daily[p].sokoReplenishTotal = 0;
+      db.daily[p].nishiOrder = 0;
+      db.daily[p].nishiOrderDate = '';
+      db.daily[p].nishiOrderAt = '';
+      db.daily[p].nishiOrderBy = '';
+      db.daily[p].deliveryCount = 0;
+      db.daily[p].minamiIssued = 0;
+      db.daily[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        renderSettingsFull();
+        renderHonbu();
+        renderNishi();
+        renderStamp();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '累計データをリセットしてGASへ同期: ' + nowStamp();
+      })
+      .catch(function (e) {
+        var err = document.getElementById('honbu-err');
+        if (err) { err.textContent = '累計データのリセット同期エラー: ' + String(e); err.hidden = false; }
+      });
+  }
+
   document.getElementById('panel-honbu').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
@@ -1687,8 +1727,10 @@
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
+    html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-soko">テストデータをリセット</button></p>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
     html += '<h2>4. 西（日用品在庫設定）</h2><div class="table-wrap" id="tb-nishi-d"></div>';
+    html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-nishi">テストデータをリセット</button></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -1819,6 +1861,14 @@
       postAlertDbg.onchange = function () {
         try { localStorage.setItem(LS_POST_ALERT_DEBUG, postAlertDbg.checked ? '1' : '0'); } catch (e) {}
       };
+    }
+    var resetSoko = document.getElementById('s-reset-test-soko');
+    if (resetSoko) {
+      resetSoko.onclick = function () { resetAllCumulativeTestData(); };
+    }
+    var resetNishi = document.getElementById('s-reset-test-nishi');
+    if (resetNishi) {
+      resetNishi.onclick = function () { resetAllCumulativeTestData(); };
     }
     var lp = document.getElementById('l-p');
     function listRowClick(e) {
