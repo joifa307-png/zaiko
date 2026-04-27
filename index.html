@@ -950,6 +950,7 @@
         throw err;
       });
   }
+  try { window.__postGAS = postGAS; } catch (e) {}
 
   var settingsSyncTimer = null;
   function scheduleSettingsSync(reason) {
