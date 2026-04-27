@@ -1612,6 +1612,7 @@
         renderStamp();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = '累計データをリセットしてGASへ同期: ' + nowStamp();
+        alert('累計データをリセットしました。\n西在庫は介護記録の消費数が反映されます。\n初期在庫を調整してください。');
       })
       .catch(function (e) {
         renderHonbu();
@@ -1734,6 +1735,7 @@
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-soko">テストデータをリセット</button></p>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
     html += '<h2>4. 西（日用品在庫設定）</h2><div class="table-wrap" id="tb-nishi-d"></div>';
+    html += '<p class="meta-line">※西在庫は「初期在庫 - 介護記録の消費累計 + 補充累計」で計算されます。リセット後に表示を合わせたい場合は、この西初期在庫を調整してください。</p>';
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-nishi">テストデータをリセット</button></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
