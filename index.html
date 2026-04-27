@@ -1264,16 +1264,14 @@
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
     var dc = Number(d0.deliveryCount) || 0;
-    if (dc <= 0) return;
-    d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + dc;
-    d0.deliveryCount = 0;
+    if (dc <= 0) { alert('納品数を入力してから納品確認してください。'); return; }
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
     return postGAS().then(function () {
       renderHonbu();
       renderNishi();
-      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・納品確認）';
+      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・納品数・西タブへ）';
     });
   }
 
