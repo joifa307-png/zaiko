@@ -159,12 +159,6 @@
     .honbu-disc-confirm { flex-shrink: 0; margin-top: 0.1rem; }
     .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
     .comms-line-honbu-alert { color: #b91c1c; font-size: 1.08rem; font-weight: 600; }
-    #btn-sync-get-nishi {
-      position: relative;
-      z-index: 1;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: rgba(37, 99, 184, 0.2);
-    }
     .comms-input-row { max-width: 36rem; margin: 0.4rem auto 0; }
     .comms-input-row--inline {
       display: flex;
@@ -1711,15 +1705,9 @@
   document.getElementById('btn-sync-get').addEventListener('click', function () {
     runManualSyncGet();
   });
-  (function () {
-    var el = document.getElementById('btn-sync-get-nishi');
-    if (!el) return;
-    el.addEventListener('click', function () { runManualSyncGet(); });
-    el.addEventListener('touchstart', function (e) {
-      e.preventDefault();
-      runManualSyncGet();
-    }, { passive: false });
-  })();
+  document.getElementById('btn-sync-get-nishi').addEventListener('click', function () {
+    runManualSyncGet();
+  });
 
   function onSettingsInput(e) {
     if (e.target && e.target.classList && e.target.classList.contains('s-n')) {
