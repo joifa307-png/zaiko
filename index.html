@@ -1606,14 +1606,18 @@
     saveDb();
     return postGAS({ skipSuccessAlert: true })
       .then(function () {
-        renderSettingsFull();
         renderHonbu();
         renderNishi();
+        renderSettingsFull();
         renderStamp();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = '累計データをリセットしてGASへ同期: ' + nowStamp();
       })
       .catch(function (e) {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
         var err = document.getElementById('honbu-err');
         if (err) { err.textContent = '累計データのリセット同期エラー: ' + String(e); err.hidden = false; }
       });
