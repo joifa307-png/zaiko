@@ -1702,13 +1702,6 @@
       })
       .catch(function (e) { el.textContent = String(e); el.hidden = false; });
   }
-  document.getElementById('btn-sync-get').addEventListener('click', function () {
-    runManualSyncGet();
-  });
-  document.getElementById('btn-sync-get-nishi').addEventListener('click', function () {
-    runManualSyncGet();
-  });
-
   function onSettingsInput(e) {
     if (e.target && e.target.classList && e.target.classList.contains('s-n')) {
       var k = e.target.getAttribute('data-k');
@@ -2012,8 +2005,12 @@
     if (gSendN) gSendN.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSendN.value); if (gSend) gSend.value = gSendN.value; } catch (e) {} });
     var hbSend = document.getElementById('honbu-msg-send');
     var nsSend = document.getElementById('nishi-msg-send');
+    var nishiSyncBtn = document.getElementById('btn-sync-get-nishi');
+    var honbuSyncBtn = document.getElementById('btn-sync-get');
     if (hbSend) hbSend.addEventListener('click', function () { sendCommsMessage('本部'); });
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
+    if (nishiSyncBtn) nishiSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
+    if (honbuSyncBtn) honbuSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     var discConf = document.getElementById('honbu-disc-confirm');
     if (discConf) discConf.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
     updateFacilityHeader();
