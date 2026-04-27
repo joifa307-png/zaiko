@@ -898,6 +898,14 @@
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
+    updateFacilityHeader();
+  }
+
+  function updateFacilityHeader() {
+    var ft = document.getElementById('facilityTitle');
+    if (!ft) return;
+    var name = (db.settings && db.settings.facilityName != null) ? String(db.settings.facilityName).trim() : '';
+    ft.textContent = name || '在庫管理';
   }
 
   function resolveGASBody(o) {
@@ -1728,6 +1736,7 @@
       '<label><input type="radio" name="s-role" value="nishi" ' + (role === 'nishi' ? 'checked' : '') + '/> 西（西タブのみ表示）</label> ' +
       '<label><input type="radio" name="s-role" value="both" ' + (role === 'both' ? 'checked' : '') + '/> 両方表示</label></p>';
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
+    html += '<p><button type="button" class="btn btn-lg" id="s-settings-sync">設定を保存・送信</button> <span id="s-settings-sync-msg" class="ok-msg"></span></p>';
     html += '<h2>西スタッフ管理</h2><p class="meta-line">発注時の操作者候補（GASに同期）</p><ul id="l-ws" class="slist"></ul><p><input id="new-ws" placeholder="スタッフ名" /> <button type="button" class="btn" id="add-ws">追加</button></p>';
     html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
@@ -1804,8 +1813,7 @@
       fac.oninput = function (e) {
         db.settings.facilityName = e.target.value;
         saveDb();
-        var ft = document.getElementById('facilityTitle');
-        if (ft) ft.textContent = e.target.value || '在庫管理';
+        updateFacilityHeader();
         scheduleSettingsSync('facility-name');
       };
     }
@@ -1861,6 +1869,23 @@
         if (msg) msg.textContent = 'GAS URL・トークンを保存しました。';
         setTimeout(function () { if (msg) msg.textContent = ''; }, 3500);
         scheduleSettingsSync('gas-endpoint-save');
+      };
+    }
+    var settingsSyncBtn = document.getElementById('s-settings-sync');
+    if (settingsSyncBtn) {
+      settingsSyncBtn.onclick = function () {
+        postGAS({ includeSettings: true })
+          .then(function () {
+            var msg = document.getElementById('s-settings-sync-msg');
+            if (msg) msg.textContent = '設定をGASに送信しました';
+            var info = document.getElementById('honbu-info');
+            if (info) info.textContent = '設定をGASに送信しました';
+            setTimeout(function () { if (msg) msg.textContent = ''; }, 3500);
+          })
+          .catch(function (e) {
+            var err = document.getElementById('honbu-err');
+            if (err) { err.textContent = '設定送信エラー: ' + String(e); err.hidden = false; }
+          });
       };
     }
     var postAlertDbg = document.getElementById('s-post-alert-debug');
@@ -1988,7 +2013,7 @@
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
     var discConf = document.getElementById('honbu-disc-confirm');
     if (discConf) discConf.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
-    document.getElementById('facilityTitle').textContent = db.settings.facilityName;
+    updateFacilityHeader();
     renderStamp();
     renderHonbu();
     applyRoleUI();
