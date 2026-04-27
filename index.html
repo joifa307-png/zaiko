@@ -155,6 +155,7 @@
     .honbu-disc-box p, .honbu-disc-box p.disc-line { margin: 0.2rem 0; color: #b91c1c; font-size: 0.95rem; }
     .honbu-disc-confirm { flex-shrink: 0; margin-top: 0.1rem; }
     .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
+    .comms-line-honbu-alert { color: #b91c1c; font-size: 1.08rem; font-weight: 600; }
     .comms-input-row { max-width: 36rem; margin: 0.4rem auto 0; }
     .comms-input-row--inline {
       display: flex;
@@ -779,7 +780,11 @@
     var elN = document.getElementById('nishi-msg-latest');
     var t = formatMessageForDisplay();
     if (elH) elH.textContent = t;
-    if (elN) elN.textContent = t;
+    if (elN) {
+      elN.textContent = t;
+      var isHonbuMessage = !!(db.message && db.message.from === '本部' && String(db.message.text || '').trim());
+      elN.classList.toggle('comms-line-honbu-alert', isHonbuMessage);
+    }
   }
   function formatNishiOrderLineHonbu(d0) {
     if (!d0 || !Number(d0.nishiOrder)) return '—';
