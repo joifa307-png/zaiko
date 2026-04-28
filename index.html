@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="在庫管理" />
@@ -1874,8 +1877,7 @@
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-soko">テストデータをリセット</button></p>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
-    html += '<h2>4. 西（日用品在庫設定）</h2><div class="table-wrap" id="tb-nishi-d"></div>';
-    html += '<p class="meta-line">※西在庫は「初期在庫 - 介護記録の消費累計 + 補充累計」で計算されます。リセット後に表示を合わせたい場合は、この西初期在庫を調整してください。</p>';
+    html += '<p class="meta-line">※西在庫（パット類）は「初期在庫 - 介護記録の消費累計 + 補充累計」で計算されます。リセット後に表示を合わせたい場合は、この西初期在庫を調整してください。</p>';
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-nishi">テストデータをリセット</button></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
@@ -1929,7 +1931,6 @@
       fillSt('tb-soko-p', db.settings.supplyProducts, 'sokoStock');
       fillSt('tb-soko-d', db.settings.dailyProducts, 'sokoStock');
       fillSt('tb-nishi-p', db.settings.supplyProducts, 'nishiStock');
-      fillSt('tb-nishi-d', db.settings.dailyProducts, 'nishiStock');
     })();
     var fac = document.getElementById('s-fac2');
     var roleRadios = root.querySelectorAll('input[name="s-role"]');
