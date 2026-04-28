@@ -1820,6 +1820,7 @@
         renderStamp();
         renderHonbu();
         renderNishi();
+        renderSettingsFull();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = 'GAS から取り込み: ' + nowStamp();
         var nishiImport = document.getElementById('nishi-import-info');
@@ -2150,7 +2151,9 @@
     if (discConf) discConf.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
     updateFacilityHeader();
     renderStamp();
+    renderSettingsFull();
     renderHonbu();
+    renderNishi();
     applyRoleUI();
     getGAS()
       .then(function (r) { return r.text(); })
@@ -2158,6 +2161,7 @@
         processGetResponse(t, '起動時GET');
         saveDb();
         renderStamp();
+        renderSettingsFull();
         renderHonbu();
         renderNishi();
         applyRoleUI();
