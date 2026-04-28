@@ -468,6 +468,7 @@
   function defSupplyRow() {
     return {
       nishiConsumedAuto: 0,
+      nishiConsumedSync: 0,
       nishiReplenish: 0,
       nishiReplenishTotal: 0,
       minamiConsumedAuto: 0,
@@ -585,6 +586,7 @@
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       else {
         if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
+        if (db.supply[p].nishiConsumedSync == null) db.supply[p].nishiConsumedSync = 0;
         if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
         if (db.supply[p].nishiReplenishTotal == null) db.supply[p].nishiReplenishTotal = (db.supply[p].cumeWestTransfer != null ? Number(db.supply[p].cumeWestTransfer) || 0 : 0);
         if (db.supply[p].sokoReplenishTotal == null) db.supply[p].sokoReplenishTotal = (db.supply[p].cumeSokoInbound != null ? Number(db.supply[p].cumeSokoInbound) || 0 : 0);
@@ -621,11 +623,35 @@
     }
   }
 
+  function nishiKaigoLocalExists() {
+    return getKaigoSupplies(LS_KAIGO_NISHI).length > 0;
+  }
+  function getNishiConsumedValue(p) {
+    ensureProductRows();
+    if (nishiKaigoLocalExists()) {
+      var o = sumSuppliesAllTime(LS_KAIGO_NISHI, [p]);
+      return o[p] != null ? Number(o[p]) || 0 : 0;
+    }
+    return Number((db.supply[p] && db.supply[p].nishiConsumedSync) || 0) || 0;
+  }
+  function updateNishiConsumedSyncFromLocal() {
+    if (!nishiKaigoLocalExists()) return;
+    ensureProductRows();
+    var products = db.settings.supplyProducts || [];
+    if (products.length === 0) return;
+    var allN = sumSuppliesAllTime(LS_KAIGO_NISHI, products);
+    products.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var v = allN[p] != null ? Number(allN[p]) || 0 : 0;
+      db.supply[p].nishiConsumedSync = v;
+    });
+  }
+
   function patStockNishi(p) {
     ensureProductRows();
     var ns = db.settings.nishiStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
-    var nAll = sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_NISHI, [p])[p] : 0;
+    var nAll = getNishiConsumedValue(p);
     return ns.initial - nAll + (Number(s.nishiReplenishTotal) || 0);
   }
 
@@ -841,6 +867,8 @@
   }
 
   function payloadForGAS(opts) {
+    updateNishiConsumedSyncFromLocal();
+    try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
     var payload = {
       token: token,
@@ -1079,8 +1107,11 @@
     var dtb = document.getElementById('honbu-daily-tbody');
     ptb.innerHTML = '';
     dtb.innerHTML = '';
-    var allN = sumSuppliesAllTime(LS_KAIGO_NISHI, db.settings.supplyProducts);
+    var allN = {};
     var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
+    db.settings.supplyProducts.forEach(function (p) {
+      allN[p] = getNishiConsumedValue(p);
+    });
 
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
@@ -1353,7 +1384,13 @@
     var dtb = document.getElementById('n-daily-tbody');
     ptb.innerHTML = '';
     dtb.innerHTML = '';
-    var sumN = sumSuppliesInWeek(LS_KAIGO_NISHI, db.settings.supplyProducts, w);
+    var sumN;
+    if (nishiKaigoLocalExists()) {
+      sumN = sumSuppliesInWeek(LS_KAIGO_NISHI, db.settings.supplyProducts, w);
+    } else {
+      sumN = {};
+      db.settings.supplyProducts.forEach(function (p) { sumN[p] = 0; });
+    }
 
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
