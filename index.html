@@ -650,18 +650,22 @@
   function nishiKaigoLocalExists() {
     return getKaigoSupplies(LS_KAIGO_NISHI).length > 0;
   }
-  /** 指定週（月曜始まり）の西消費。介護記録がない端末は 0。 */
+  /** 指定週（月曜始まり）の西消費（GAS同期値）。 */
   function getNishiWeekConsumed(p, monday) {
-    if (!nishiKaigoLocalExists() || !monday) return 0;
-    var o = sumSuppliesInWeek(LS_KAIGO_NISHI, [p], monday);
-    return o[p] != null ? Number(o[p]) || 0 : 0;
+    if (!monday) return 0;
+    ensureProductRows();
+    var s = (db.supply && db.supply[p]) ? db.supply[p] : null;
+    if (!s) return 0;
+    return s.nishiConsumedSync != null ? (Number(s.nishiConsumedSync) || 0) : 0;
   }
   function updateNishiConsumedSyncFromLocal() {
     if (!nishiKaigoLocalExists()) return;
     ensureProductRows();
     var products = db.settings.supplyProducts || [];
     if (products.length === 0) return;
-    var allN = sumSuppliesAllTime(LS_KAIGO_NISHI, products);
+    // 在庫計算で使うのは「週消費」なので、選択中の週（西タブ）で集計する
+    var monday = weekMonday || getMonday(new Date());
+    var allN = sumSuppliesInWeek(LS_KAIGO_NISHI, products, monday);
     products.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var v = allN[p] != null ? Number(allN[p]) || 0 : 0;
