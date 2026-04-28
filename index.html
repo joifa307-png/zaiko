@@ -203,6 +203,17 @@
             <button type="button" class="btn" id="honbu-msg-send">送信</button>
           </div>
         </div>
+        <div class="row-flex" style="flex-wrap: wrap; margin: 0.5rem 0 0.25rem;">
+          <div>
+            <label>パット類・集計期間（週：月曜〜日曜）</label><br />
+            <div>
+              <button type="button" class="btn btn-ghost" id="h-week-prev" title="前週">◀</button>
+              <span id="h-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
+              <button type="button" class="btn btn-ghost" id="h-week-next" title="次週">▶</button>
+              <button type="button" class="btn btn-ghost" id="h-week-today" title="今週">今週</button>
+            </div>
+          </div>
+        </div>
         <div class="section-title"><h2>パット類</h2></div>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -553,6 +564,16 @@
       weekMonday = new Date(parseInt(ps[0], 10), parseInt(ps[1], 10) - 1, parseInt(ps[2], 10));
     } catch (e) {}
   }
+  var LS_HONBU_WEEK = 'zaiko_week_mon_honbu';
+  var weekMondayHonbu = getMonday(new Date());
+  if (!localStorage.getItem(LS_HONBU_WEEK)) {
+    try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+  } else {
+    try {
+      var phb = localStorage.getItem(LS_HONBU_WEEK).split('-');
+      weekMondayHonbu = new Date(parseInt(phb[0], 10), parseInt(phb[1], 10) - 1, parseInt(phb[2], 10));
+    } catch (e) {}
+  }
 
   function saveDb() {
     localStorage.setItem(LS_KEY, JSON.stringify(db));
@@ -626,13 +647,11 @@
   function nishiKaigoLocalExists() {
     return getKaigoSupplies(LS_KAIGO_NISHI).length > 0;
   }
-  function getNishiConsumedValue(p) {
-    ensureProductRows();
-    if (nishiKaigoLocalExists()) {
-      var o = sumSuppliesAllTime(LS_KAIGO_NISHI, [p]);
-      return o[p] != null ? Number(o[p]) || 0 : 0;
-    }
-    return Number((db.supply[p] && db.supply[p].nishiConsumedSync) || 0) || 0;
+  /** 指定週（月曜始まり）の西消費。介護記録がない端末は 0。 */
+  function getNishiWeekConsumed(p, monday) {
+    if (!nishiKaigoLocalExists() || !monday) return 0;
+    var o = sumSuppliesInWeek(LS_KAIGO_NISHI, [p], monday);
+    return o[p] != null ? Number(o[p]) || 0 : 0;
   }
   function updateNishiConsumedSyncFromLocal() {
     if (!nishiKaigoLocalExists()) return;
@@ -647,12 +666,13 @@
     });
   }
 
-  function patStockNishi(p) {
+  function patStockNishi(p, monday) {
     ensureProductRows();
+    if (!monday) monday = weekMonday;
     var ns = db.settings.nishiStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
-    var nAll = getNishiConsumedValue(p);
-    return ns.initial - nAll + (Number(s.nishiReplenishTotal) || 0);
+    var nWeek = getNishiWeekConsumed(p, monday);
+    return ns.initial - nWeek + (Number(s.nishiReplenishTotal) || 0);
   }
 
   function patStockSoko(p) {
@@ -1108,19 +1128,22 @@
     ptb.innerHTML = '';
     dtb.innerHTML = '';
     var allN = {};
+    var wHonbu = weekMondayHonbu;
+    var hLabel = document.getElementById('h-week-label');
+    if (hLabel) hLabel.textContent = ymd(wHonbu) + ' 〜 ' + ymd(addDays(wHonbu, 6)) + '（月〜日）';
     var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
     db.settings.supplyProducts.forEach(function (p) {
-      allN[p] = getNishiConsumedValue(p);
+      allN[p] = getNishiWeekConsumed(p, wHonbu);
     });
 
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
-      var wk = patStockNishi(p);
+      var wk = patStockNishi(p, wHonbu);
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
       var mAll = allM[p] != null ? allM[p] : 0;
-      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedAll: nWeek, minamiConsumedAll: mAll });
+      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll });
       var stH = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML =
@@ -1384,18 +1407,15 @@
     var dtb = document.getElementById('n-daily-tbody');
     ptb.innerHTML = '';
     dtb.innerHTML = '';
-    var sumN;
-    if (nishiKaigoLocalExists()) {
-      sumN = sumSuppliesInWeek(LS_KAIGO_NISHI, db.settings.supplyProducts, w);
-    } else {
-      sumN = {};
-      db.settings.supplyProducts.forEach(function (p) { sumN[p] = 0; });
-    }
+    var sumN = {};
+    db.settings.supplyProducts.forEach(function (p) {
+      sumN[p] = getNishiWeekConsumed(p, w);
+    });
 
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
-      var wk = patStockNishi(p);
+      var wk = patStockNishi(p, w);
       var stN = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML = '<td></td><td class="num"></td><td class="num"></td><td></td><td></td><td></td>';
@@ -1728,6 +1748,31 @@
     try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
     renderNishi();
   });
+
+  var hwp = document.getElementById('h-week-prev');
+  if (hwp) {
+    hwp.addEventListener('click', function () {
+      weekMondayHonbu = addDays(weekMondayHonbu, -7);
+      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      renderHonbu();
+    });
+  }
+  var hwn = document.getElementById('h-week-next');
+  if (hwn) {
+    hwn.addEventListener('click', function () {
+      weekMondayHonbu = addDays(weekMondayHonbu, 7);
+      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      renderHonbu();
+    });
+  }
+  var hwt = document.getElementById('h-week-today');
+  if (hwt) {
+    hwt.addEventListener('click', function () {
+      weekMondayHonbu = getMonday(new Date());
+      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      renderHonbu();
+    });
+  }
 
   function activateTab(n) {
     document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === n); });
