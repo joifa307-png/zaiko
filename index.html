@@ -255,6 +255,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
               <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
+            <p class="meta-line" id="nishi-import-info" style="margin: 0.35rem 0 0;"></p>
             <p class="meta-line" id="nishi-stamp">最終更新: なし</p>
           </div>
           <div>
@@ -1736,6 +1737,8 @@
         renderNishi();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = 'GAS から取り込み: ' + nowStamp();
+        var nishiImport = document.getElementById('nishi-import-info');
+        if (nishiImport) nishiImport.textContent = 'GASからの取込：' + nowStamp();
         syncBtns.forEach(function (b) {
           b.disabled = false;
           b.textContent = '取得済 ✓';
