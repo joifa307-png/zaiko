@@ -1023,12 +1023,26 @@
     gasLog('受信反映後 local db', { settings: db.settings, supply: db.supply, daily: db.daily, lastSynced: db.lastSynced, lastSyncedBy: db.lastSyncedBy });
   }
 
+  function formatLastSynced(val) {
+    if (!val) return '--';
+    var s = String(val).trim();
+    if (s.indexOf('T') > -1) {
+      var d = new Date(s);
+      if (isNaN(d.getTime())) return s;
+      var loc = d.toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo' });
+      var m = loc.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})/);
+      if (m) return m[1] + ' ' + String(m[2]).padStart(2, '0') + ':' + m[3];
+      return s;
+    }
+    return s;
+  }
+
   function renderStamp() {
     var el = document.getElementById('honbu-stamp');
     var elN = document.getElementById('nishi-stamp');
     var msg;
     if (db.lastSynced && db.lastSyncedBy) {
-      msg = '最終更新: ' + db.lastSyncedBy + ' ／ ' + db.lastSynced;
+      msg = '最終更新: ' + db.lastSyncedBy + ' ／ ' + formatLastSynced(db.lastSynced);
     } else {
       msg = '最終更新: なし';
     }
