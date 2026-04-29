@@ -887,6 +887,18 @@
       });
   }
 
+  function setAutoDiscrepancyMessage(categoryLabel, product, expected, actual) {
+    var diff = actual - expected;
+    if (diff === 0) return;
+    var sign = diff > 0 ? '+' : '';
+    db.message = {
+      from: '西',
+      text: '差異報告（' + categoryLabel + '） ' + String(product) +
+        ' / 予定:' + expected + ' / 受取:' + actual + ' / 差異:' + sign + diff,
+      sentAt: nowStamp()
+    };
+  }
+
   function nowStamp() {
     var n = new Date();
     return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0') + ' ' +
@@ -1502,14 +1514,7 @@
       b1.textContent = '発注';
       b1.setAttribute('data-act', 'n-ord');
       b1.setAttribute('data-p', p);
-      var b2 = document.createElement('button');
-      b2.className = 'btn btn-ghost';
-      b2.textContent = '受取';
-      b2.setAttribute('data-act', 'n-daily-reset');
-      b2.setAttribute('data-p', p);
       tr2.cells[3].appendChild(b1);
-      tr2.cells[3].appendChild(document.createTextNode(' '));
-      tr2.cells[3].appendChild(b2);
       {
         var dc = Number(d0.deliveryCount) || 0;
         var no = Number(d0.nishiOrder) || 0;
@@ -1558,6 +1563,7 @@
     var actual = inp ? (parseFloat(inp.value) || 0) : 0;
     if (actual !== expected) {
       s.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
+      setAutoDiscrepancyMessage('パット類', p, expected, actual);
     } else {
       s.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
@@ -1641,6 +1647,7 @@
     var actual = inp ? (parseFloat(inp.value) || 0) : 0;
     if (actual !== expected) {
       d0.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
+      setAutoDiscrepancyMessage('日用品', p, expected, actual);
     } else {
       d0.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
@@ -1765,7 +1772,6 @@
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat-recv') { doNishiPatReceiveConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
-    if (t.getAttribute('data-act') === 'n-daily-reset') { doNishiDailyReset(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-daily-recv') { doNishiDailyReceiveConfirm(t.getAttribute('data-p')); }
   });
 
