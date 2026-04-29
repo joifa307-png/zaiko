@@ -1706,7 +1706,7 @@
       var s = db.supply[p];
       s.sokoReplenish = 0;
       s.sokoReplenishTotal = 0;
-      s.minamiConsumedAuto = 0;
+      // 消費履歴は週切替で参照するため保持
       s.discrepancy = defDiscrepancyResolved();
     } else if (scope === 'soko-d') {
       if (!db.settings.sokoStock[p]) db.settings.sokoStock[p] = defStockRow();
@@ -1727,8 +1727,7 @@
       var s2 = db.supply[p];
       s2.nishiReplenish = 0;
       s2.nishiReplenishTotal = 0;
-      s2.nishiConsumedSync = 0;
-      s2.nishiConsumedAuto = 0;
+      // 消費履歴は週切替で参照するため保持
       s2.discrepancy = defDiscrepancyResolved();
     }
     db.lastSynced = nowStamp();
