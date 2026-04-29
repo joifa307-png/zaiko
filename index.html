@@ -1670,6 +1670,101 @@
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
 
+  function defDiscrepancyResolved() {
+    return { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
+  }
+
+  /** 倉庫まわり：入力中・累計（倉庫在庫の表示に効く値）と差異をゼロに戻す（パット・日用品） */
+  function resetSokoInventoryData() {
+    if (!confirm('倉庫の在庫データ（入力中・累計・差異）をリセットします。よろしいですか？')) return;
+    ensureProductRows();
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      s.sokoReplenish = 0;
+      s.sokoReplenishTotal = 0;
+      s.minamiConsumedAuto = 0;
+      s.discrepancy = defDiscrepancyResolved();
+    });
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var d = db.daily[p];
+      d.deliveryCount = 0;
+      d.deliveryTotal = 0;
+      d.minamiIssued = 0;
+      d.minamiIssuedTotal = 0;
+      d.sokoReplenish = 0;
+      d.sokoReplenishTotal = 0;
+      d.discrepancy = defDiscrepancyResolved();
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '倉庫の在庫データをリセットしてGASへ同期: ' + nowStamp();
+        alert('倉庫の在庫データをリセットしました。');
+      })
+      .catch(function (e) {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        var err = document.getElementById('honbu-err');
+        if (err) { err.textContent = '倉庫在庫リセットの同期エラー: ' + String(e); err.hidden = false; }
+      });
+  }
+
+  /** 西まわり：入力中・累計（西在庫の表示に効く値）と差異をゼロに戻す（パット・日用品の西側） */
+  function resetNishiInventoryData() {
+    if (!confirm('西の在庫データ（入力中・累計・差異）をリセットします。よろしいですか？')) return;
+    ensureProductRows();
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      s.nishiReplenish = 0;
+      s.nishiReplenishTotal = 0;
+      s.nishiConsumedSync = 0;
+      s.nishiConsumedAuto = 0;
+      s.discrepancy = defDiscrepancyResolved();
+    });
+    db.settings.dailyProducts.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var d = db.daily[p];
+      d.nishiOrder = 0;
+      d.nishiOrderDate = '';
+      d.nishiOrderAt = '';
+      d.nishiOrderBy = '';
+      d.discrepancy = defDiscrepancyResolved();
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '西の在庫データをリセットしてGASへ同期: ' + nowStamp();
+        alert('西の在庫データをリセットしました。');
+      })
+      .catch(function (e) {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        var err = document.getElementById('honbu-err');
+        if (err) { err.textContent = '西在庫リセットの同期エラー: ' + String(e); err.hidden = false; }
+      });
+  }
+
   function resetAllCumulativeTestData() {
     if (!confirm('すべての累計データをリセットします。よろしいですか？')) return;
     ensureProductRows();
@@ -1880,9 +1975,11 @@
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
+    html += '<p><button type="button" class="btn btn-ghost" id="s-reset-stock-soko">【在庫データリセット】</button></p>';
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-soko">テストデータをリセット</button></p>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
     html += '<p class="meta-line">※西在庫（パット類）は「初期在庫 - 介護記録の消費累計 + 補充累計」で計算されます。リセット後に表示を合わせたい場合は、この西初期在庫を調整してください。</p>';
+    html += '<p><button type="button" class="btn btn-ghost" id="s-reset-stock-nishi">【在庫データリセット】</button></p>';
     html += '<p><button type="button" class="btn btn-ghost" id="s-reset-test-nishi">テストデータをリセット</button></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
@@ -2029,6 +2126,14 @@
       postAlertDbg.onchange = function () {
         try { localStorage.setItem(LS_POST_ALERT_DEBUG, postAlertDbg.checked ? '1' : '0'); } catch (e) {}
       };
+    }
+    var resetStockSoko = document.getElementById('s-reset-stock-soko');
+    if (resetStockSoko) {
+      resetStockSoko.onclick = function () { resetSokoInventoryData(); };
+    }
+    var resetStockNishi = document.getElementById('s-reset-stock-nishi');
+    if (resetStockNishi) {
+      resetStockNishi.onclick = function () { resetNishiInventoryData(); };
     }
     var resetSoko = document.getElementById('s-reset-test-soko');
     if (resetSoko) {
