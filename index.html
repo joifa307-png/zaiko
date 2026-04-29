@@ -1798,8 +1798,10 @@
    */
   function applyPatBaselineFromSettings() {
     if (!confirm('設定の在庫数（倉庫・西）を本部・西の倉庫/西在庫表示の基準に合わせ、パットの補充（未確分）と差異をリセットします。介護の週次消費・南累計はそのまま反映されます。よろしいですか？')) return;
+    flushSettingsStockInputsToDb();
     ensureProductRows();
-    var w = weekMondayHonbu;
+    // 本部表示の patStockNishi(p, wN) は wN=weekMonday なので週次消費の参照週を合わせる
+    var w = weekMonday;
     var products = db.settings.supplyProducts || [];
     if (!products.length) { alert('パット品目がありません。'); return; }
     var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, products);
@@ -1817,7 +1819,8 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    return postGAS()
+    // GAS 応答で mergeFromServer するため settings も送る（送らないとサーバの古い在庫数で上書きされ、表示が戻る）
+    return postGAS({ includeSettings: true, skipSuccessAlert: true })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -1837,6 +1840,7 @@
   /** 日用品（倉庫）：設定の在庫数を表示の起点にし、納品・南卸・倉庫補充の累積と差異をリセットする。 */
   function applyDailySokoBaselineFromSettings() {
     if (!confirm('設定の在庫数（倉庫）を、日用品の倉庫在庫表示の基準に合わせ、納品・南卸・倉庫補充の累積と差異をリセットします。発注中の表示もクリアします。よろしいですか？')) return;
+    flushSettingsStockInputsToDb();
     ensureProductRows();
     var dps = db.settings.dailyProducts || [];
     if (!dps.length) { alert('日用品品目がありません。'); return; }
@@ -1858,7 +1862,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    return postGAS()
+    return postGAS({ includeSettings: true, skipSuccessAlert: true })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -2037,6 +2041,23 @@
       renderNishi();
       scheduleSettingsSync('stock-input');
     }
+  }
+  /** 在庫数・閾値の入力が db に未反映のままの場合に備え、設定画面の表から確実に取り込む */
+  function flushSettingsStockInputsToDb() {
+    var root = document.getElementById('settings-root');
+    if (!root) return;
+    ensureProductRows();
+    root.querySelectorAll('input.s-n').forEach(function (el) {
+      var k = el.getAttribute('data-k');
+      var p = el.getAttribute('data-p');
+      var f = el.getAttribute('data-f');
+      if (!k || !p || !f) return;
+      if (!db.settings[k] || typeof db.settings[k] !== 'object') db.settings[k] = {};
+      if (!db.settings[k][p]) db.settings[k][p] = defStockRow();
+      var v = el.value === '' ? 0 : parseFloat(el.value);
+      if (isNaN(v)) v = 0;
+      db.settings[k][p][f] = v;
+    });
   }
   function onSettingsRowResetClick(e) {
     var btn = e.target && e.target.closest && e.target.closest('button.s-row-reset');
