@@ -584,6 +584,9 @@
       weekMondayHonbu = new Date(parseInt(phb[0], 10), parseInt(phb[1], 10) - 1, parseInt(phb[2], 10));
     } catch (e) {}
   }
+  // 本部(パット)と西の「週」が分岐すると、同じ在庫数設定でも在庫表示が食い違うため一つに揃える
+  weekMondayHonbu = new Date(weekMonday.getTime());
+  try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
 
   function saveDb() {
     localStorage.setItem(LS_KEY, JSON.stringify(db));
@@ -1201,18 +1204,20 @@
     ptb.innerHTML = '';
     dtb.innerHTML = '';
     var allN = {};
+    // 西タブの週(weekMonday)基準。設定の在庫数 (initial) を直後に他タブへ出すため、本部/西の週を一致させる
+    var wN = weekMonday;
     var wHonbu = weekMondayHonbu;
     var hLabel = document.getElementById('h-week-label');
     if (hLabel) hLabel.textContent = ymd(wHonbu) + ' 〜 ' + ymd(addDays(wHonbu, 6)) + '（月〜日）';
     var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
     db.settings.supplyProducts.forEach(function (p) {
-      allN[p] = getNishiWeekConsumed(p, wHonbu);
+      allN[p] = getNishiWeekConsumed(p, wN);
     });
 
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
-      var wk = patStockNishi(p, wHonbu);
+      var wk = patStockNishi(p, wN);
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
       var mAll = allM[p] != null ? allM[p] : 0;
@@ -1817,12 +1822,18 @@
   document.getElementById('n-week-prev').addEventListener('click', function () {
     weekMonday = addDays(weekMonday, -7);
     try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
+    weekMondayHonbu = new Date(weekMonday.getTime());
+    try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
     renderNishi();
+    renderHonbu();
   });
   document.getElementById('n-week-next').addEventListener('click', function () {
     weekMonday = addDays(weekMonday, 7);
     try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
+    weekMondayHonbu = new Date(weekMonday.getTime());
+    try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
     renderNishi();
+    renderHonbu();
   });
   var nResetWeekConsumedBtn = document.getElementById('n-reset-week-consumed');
   if (nResetWeekConsumedBtn) {
@@ -1836,7 +1847,10 @@
     hwp.addEventListener('click', function () {
       weekMondayHonbu = addDays(weekMondayHonbu, -7);
       try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      weekMonday = new Date(weekMondayHonbu.getTime());
+      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
       renderHonbu();
+      renderNishi();
     });
   }
   var hwn = document.getElementById('h-week-next');
@@ -1844,7 +1858,10 @@
     hwn.addEventListener('click', function () {
       weekMondayHonbu = addDays(weekMondayHonbu, 7);
       try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      weekMonday = new Date(weekMondayHonbu.getTime());
+      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
       renderHonbu();
+      renderNishi();
     });
   }
   var hwt = document.getElementById('h-week-today');
@@ -1852,7 +1869,10 @@
     hwt.addEventListener('click', function () {
       weekMondayHonbu = getMonday(new Date());
       try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
+      weekMonday = new Date(weekMondayHonbu.getTime());
+      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
       renderHonbu();
+      renderNishi();
     });
   }
 
