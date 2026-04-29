@@ -176,6 +176,14 @@
       color: #fff;
     }
     .btn-pink:hover { background: #db2777; border-color: #be185d; }
+    .honbu-ui-ver {
+      margin: 0 0 0.35rem 0;
+      font-size: 0.65rem;
+      line-height: 1.2;
+      color: #94a3b8;
+      letter-spacing: 0.04em;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -191,6 +199,7 @@
   <main class="wrap">
     <section class="panel active" data-panel="honbu" id="panel-honbu">
       <div class="card">
+        <p class="honbu-ui-ver" id="honbu-ui-version" title="index.html 反映確認用。更新のたびに定義を上げる（本文は JS で表示）"></p>
         <div class="row-flex" style="justify-content: space-between; align-items: flex-end;">
           <div>
             <label for="global-sender">操作者名（GAS送信用）</label><br />
@@ -351,6 +360,10 @@
   var LS_NISHI_OPERATOR = 'zaiko_nishi_order_by';
   var LS_KAIGO_NISHI = 'kaigo_nishi';
   var LS_KAIGO_MINAMI = 'kaigo_minami';
+  /**
+   * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
+   */
+  var ZAIKO_HTML_VERSION = '1.0.0';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -2366,6 +2379,10 @@
 
   // Init
   (function init() {
+    (function setHonbuVersionLabel() {
+      var el = document.getElementById('honbu-ui-version');
+      if (el) el.textContent = 'UI v' + ZAIKO_HTML_VERSION;
+    })();
     ensureProductRows();
     var gSend = document.getElementById('global-sender');
     var gSendN = document.getElementById('global-sender-nishi');
