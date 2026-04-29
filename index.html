@@ -895,6 +895,7 @@
 
   function payloadForGAS(opts) {
     updateNishiConsumedSyncFromLocal();
+    if (opts && opts.includeSettings) ensureProductRows();
     try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
     var payload = {
@@ -1076,7 +1077,8 @@
     return fetch(gasUrl + '?token=' + encodeURIComponent(token) + '&ts=' + Date.now(), {
       method: 'GET',
       mode: 'cors',
-      redirect: 'follow'
+      redirect: 'follow',
+      cache: 'no-store'
     });
   }
 
