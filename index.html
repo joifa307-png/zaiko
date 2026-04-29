@@ -1791,6 +1791,90 @@
     db.lastSyncedBy = getSender() || '未記入';
   }
 
+  /**
+   * パット類：設定の在庫数（倉庫・西）と本部表示を一致させる。
+   * 週次西消費 nW・南累計 mA は維持し、補充累計を nishiReplenishTotal=nW、sokoReplenishTotal=nW+mA に設定する（式上、西在庫=西initial、倉庫=倉庫initial）。
+   * 未確の補充分・差異はクリアする。
+   */
+  function applyPatBaselineFromSettings() {
+    if (!confirm('設定の在庫数（倉庫・西）を本部・西の倉庫/西在庫表示の基準に合わせ、パットの補充（未確分）と差異をリセットします。介護の週次消費・南累計はそのまま反映されます。よろしいですか？')) return;
+    ensureProductRows();
+    var w = weekMondayHonbu;
+    var products = db.settings.supplyProducts || [];
+    if (!products.length) { alert('パット品目がありません。'); return; }
+    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, products);
+    products.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      var mA = allM[p] != null ? Number(allM[p]) || 0 : 0;
+      var nW = getNishiWeekConsumed(p, w);
+      s.nishiReplenish = 0;
+      s.sokoReplenish = 0;
+      s.nishiReplenishTotal = nW;
+      s.sokoReplenishTotal = nW + mA;
+      s.discrepancy = defDiscrepancyResolved();
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS()
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        updateMessageAreas();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '在庫数(パット)を基準に反映: ' + nowStamp();
+        alert('パットの在庫表示を、設定の在庫数を起点にそろえました。');
+      })
+      .catch(function (e) {
+        var err = document.getElementById('honbu-err');
+        if (err) { err.textContent = '在庫数反映エラー: ' + String(e); err.hidden = false; }
+      });
+  }
+
+  /** 日用品（倉庫）：設定の在庫数を表示の起点にし、納品・南卸・倉庫補充の累積と差異をリセットする。 */
+  function applyDailySokoBaselineFromSettings() {
+    if (!confirm('設定の在庫数（倉庫）を、日用品の倉庫在庫表示の基準に合わせ、納品・南卸・倉庫補充の累積と差異をリセットします。発注中の表示もクリアします。よろしいですか？')) return;
+    ensureProductRows();
+    var dps = db.settings.dailyProducts || [];
+    if (!dps.length) { alert('日用品品目がありません。'); return; }
+    dps.forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      var d = db.daily[p];
+      d.deliveryCount = 0;
+      d.deliveryTotal = 0;
+      d.minamiIssued = 0;
+      d.minamiIssuedTotal = 0;
+      d.sokoReplenish = 0;
+      d.sokoReplenishTotal = 0;
+      d.nishiOrder = 0;
+      d.nishiOrderDate = '';
+      d.nishiOrderAt = '';
+      d.nishiOrderBy = '';
+      d.discrepancy = defDiscrepancyResolved();
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS()
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        renderSettingsFull();
+        renderStamp();
+        updateMessageAreas();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '在庫数(日用品)を基準に反映: ' + nowStamp();
+        alert('日用品の倉庫在庫表示を、設定の在庫数を起点にそろえました。');
+      })
+      .catch(function (e) {
+        var err = document.getElementById('honbu-err');
+        if (err) { err.textContent = '在庫数反映エラー: ' + String(e); err.hidden = false; }
+      });
+  }
+
   document.getElementById('panel-honbu').addEventListener('click', function (e) {
     console.log('確認ボタン押下');
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
@@ -2001,8 +2085,12 @@
     html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
+    html += '<p class="meta-line" style="margin-top:0.4rem">日用品：下の「在庫数変更」で、上の在庫数を本部の倉庫在庫（日用品）表示の基準に合わせ、納品・南卸・倉庫補充の累積と差異をゼロからやり直します（発注中の行もクリア）。</p>';
+    html += '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn" id="s-apply-baseline-soko-d">在庫数変更</button></p>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
-    html += '<p class="meta-line">※西在庫（パット類）は「在庫数 - 介護記録の消費累計 + 補充累計」で計算されます。リセット後に表示を合わせたい場合は、この在庫数を調整してください。</p>';
+    html += '<p class="meta-line" style="margin-top:0.4rem">※西在庫（パット類）は「在庫数 - 週次消費 + 補充累計」、倉庫（パット類）は倉庫在庫数と西・南の流れから計算されます。</p>';
+    html += '<p class="meta-line" style="margin-top:0.3rem">パット：下の「在庫数変更」で、セクション1（倉庫）と3（西）の在庫数に合わせ、本部の倉庫/西在庫表示を揃えます。補充（未確分）と差異をリセットし、週次西消費と南累計を保ったまま、以降の在庫計算の起点にします。</p>';
+    html += '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn" id="s-apply-baseline-pat">在庫数変更</button></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -2150,6 +2238,10 @@
           });
       };
     }
+    var sokoDBaselineBtn = document.getElementById('s-apply-baseline-soko-d');
+    if (sokoDBaselineBtn) sokoDBaselineBtn.onclick = function () { applyDailySokoBaselineFromSettings(); };
+    var patBaselineBtn = document.getElementById('s-apply-baseline-pat');
+    if (patBaselineBtn) patBaselineBtn.onclick = function () { applyPatBaselineFromSettings(); };
     var postAlertDbg = document.getElementById('s-post-alert-debug');
     if (postAlertDbg) {
       postAlertDbg.onchange = function () {
