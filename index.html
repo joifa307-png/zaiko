@@ -894,15 +894,29 @@
   }
 
   function payloadForGAS(opts) {
-    updateNishiConsumedSyncFromLocal();
     if (opts && opts.includeSettings) ensureProductRows();
     try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
+
+    // nishiConsumedSync は「介護記録アプリ専用の書込フィールド」扱い。
+    // 在庫アプリ側の POST では送信しない（サーバ側の値を上書きしない）。
+    var supplyForSend = {};
+    var sIn = db.supply && typeof db.supply === 'object' ? db.supply : {};
+    Object.keys(sIn).forEach(function (p) {
+      var row = sIn[p];
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+      var rowCopy = {};
+      Object.keys(row).forEach(function (f) { rowCopy[f] = row[f]; });
+      delete rowCopy.nishiConsumedSync;
+      delete rowCopy.nishConsumedSync; // 互換性のため
+      supplyForSend[p] = rowCopy;
+    });
+
     var payload = {
       token: token,
       sender: getSender() || '未記入',
       sentAt: nowStamp(),
-      supply: db.supply,
+      supply: supplyForSend,
       daily: db.daily,
       message: db.message && typeof db.message === 'object' && !Array.isArray(db.message)
         ? { from: String(db.message.from || ''), text: String(db.message.text || ''), sentAt: String(db.message.sentAt || '') }
@@ -1454,14 +1468,6 @@
           '<span class="meta-line">予定: ' + s.nishiReplenish + '個</span> ' +
           '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
       } else { tr.cells[3].textContent = '—'; }
-      var btnOrd = document.createElement('button');
-      btnOrd.type = 'button';
-      btnOrd.className = 'btn';
-      btnOrd.textContent = '発注';
-      btnOrd.setAttribute('data-act', 'n-pat-order');
-      btnOrd.setAttribute('data-p', p);
-      tr.cells[4].appendChild(btnOrd);
-      tr.cells[4].appendChild(document.createTextNode(' '));
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn-ghost';
@@ -1756,7 +1762,6 @@
     console.log('確認ボタン押下');
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!t) return;
-    if (t.getAttribute('data-act') === 'n-pat-order') { doNishiPatOrder(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-pat-recv') { doNishiPatReceiveConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
@@ -1884,7 +1889,7 @@
     var scope = btn.getAttribute('data-scope');
     var p = btn.getAttribute('data-p');
     if (!scope || p == null || p === '') return;
-    if (!confirm('この品目の在庫データ（在庫数・入力・累計・差異）をリセットします。よろしいですか？')) return;
+    if (!confirm('在庫を0にしますか？')) return;
     resetInventoryRow(scope, p);
     saveDb();
     postGAS({ includeSettings: true, skipSuccessAlert: true })
