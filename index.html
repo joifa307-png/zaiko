@@ -267,6 +267,7 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
+              <button type="button" class="btn btn-ghost" id="n-reset-week-consumed">週次消費数リセット</button>
               <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
             <p class="meta-line" id="nishi-import-info" style="margin: 0.35rem 0 0;"></p>
@@ -910,8 +911,9 @@
     try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
 
-    // nishiConsumedSync は「介護記録アプリ専用の書込フィールド」扱い。
-    // 在庫アプリ側の POST では送信しない（サーバ側の値を上書きしない）。
+    // 既定では nishiConsumedSync は在庫アプリから送信しない（介護記録優先）。
+    // ただし週次消費数リセット時のみ opts.includeNishiConsumedSync で送信を許可。
+    var includeNishiConsumedSync = !!(opts && opts.includeNishiConsumedSync);
     var supplyForSend = {};
     var sIn = db.supply && typeof db.supply === 'object' ? db.supply : {};
     Object.keys(sIn).forEach(function (p) {
@@ -919,8 +921,10 @@
       if (!row || typeof row !== 'object' || Array.isArray(row)) return;
       var rowCopy = {};
       Object.keys(row).forEach(function (f) { rowCopy[f] = row[f]; });
-      delete rowCopy.nishiConsumedSync;
-      delete rowCopy.nishConsumedSync; // 互換性のため
+      if (!includeNishiConsumedSync) {
+        delete rowCopy.nishiConsumedSync;
+        delete rowCopy.nishConsumedSync; // 互換性のため
+      }
       supplyForSend[p] = rowCopy;
     });
 
@@ -970,7 +974,16 @@
       db.settings = d.settings;
     }
     if (d.supply && typeof d.supply === 'object') {
-      db.supply = d.supply;
+      if (!db.supply || typeof db.supply !== 'object') db.supply = {};
+      Object.keys(d.supply).forEach(function (p) {
+        if (!db.supply[p] || typeof db.supply[p] !== 'object' || Array.isArray(db.supply[p])) db.supply[p] = {};
+        var row = d.supply[p];
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+        Object.keys(row).forEach(function (f) {
+          db.supply[p][f] = row[f];
+        });
+        // nishiConsumedSync はGASから返ってこない場合は既存値を維持
+      });
     }
     if (d.daily && typeof d.daily === 'object') {
       db.daily = d.daily;
@@ -1702,6 +1715,24 @@
     return postGAS().then(function () { renderNishi(); renderHonbu(); });
   }
 
+  function resetNishiWeekConsumed() {
+    if (!confirm('今週の消費数をリセットします。よろしいですか？')) return;
+    ensureProductRows();
+    db.settings.supplyProducts.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      db.supply[p].nishiConsumedSync = 0;
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = getSender() || '未記入';
+    saveDb();
+    return postGAS({ includeNishiConsumedSync: true })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        alert('リセットしました');
+      });
+  }
+
   function defDiscrepancyResolved() {
     return { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
   }
@@ -1785,6 +1816,12 @@
     try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
     renderNishi();
   });
+  var nResetWeekConsumedBtn = document.getElementById('n-reset-week-consumed');
+  if (nResetWeekConsumedBtn) {
+    nResetWeekConsumedBtn.addEventListener('click', function () {
+      resetNishiWeekConsumed();
+    });
+  }
 
   var hwp = document.getElementById('h-week-prev');
   if (hwp) {
