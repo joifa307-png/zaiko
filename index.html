@@ -170,6 +170,12 @@
     }
     .comms-input-row--inline .comms-ta { flex: 1; min-width: 0; min-height: 2.5rem; resize: vertical; }
     .comms-input-row--inline .btn { flex-shrink: 0; align-self: flex-start; margin-top: 0.05rem; }
+    .btn-pink {
+      background: #ec4899;
+      border-color: #db2777;
+      color: #fff;
+    }
+    .btn-pink:hover { background: #db2777; border-color: #be185d; }
   </style>
 </head>
 <body>
@@ -267,7 +273,6 @@
               <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
               <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
               <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
-              <button type="button" class="btn btn-ghost" id="n-reset-week-consumed">週次消費数リセット</button>
               <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
             <p class="meta-line" id="nishi-import-info" style="margin: 0.35rem 0 0;"></p>
@@ -320,6 +325,7 @@
           <label for="nishi-operator-sel" class="meta-line">西スタッフ（操作者）</label>
           <select id="nishi-operator-sel" style="min-width:10rem;font-size:1.05rem;"></select>
           <button type="button" class="btn btn-lg" id="n-order-all">一括発注を送信</button>
+          <button type="button" class="btn btn-lg btn-pink" id="n-reset-week-consumed">週次消費数リセット</button>
         </div>
       </div>
     </section>
@@ -1055,7 +1061,9 @@
         return x.text;
       })
       .then(function (text) {
-        applySnapshotFromPostResponse(text);
+        if (!(opts && opts.skipApplySnapshotFromPost)) {
+          applySnapshotFromPostResponse(text);
+        }
         return text;
       })
       .then(function (text) {
@@ -1725,7 +1733,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    return postGAS({ includeNishiConsumedSync: true })
+    return postGAS({ includeNishiConsumedSync: true, skipApplySnapshotFromPost: true })
       .then(function () {
         renderHonbu();
         renderNishi();
