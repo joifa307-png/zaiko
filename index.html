@@ -360,13 +360,15 @@
   var gasUrl = DEFAULT_GAS_URL;
   var token = DEFAULT_TOKEN;
   var LS_KEY = 'zaiko_db';
+  /** 品名と衝突しない supply キー。週次消費リセット日時を品目オブジェクトと同じマージ・POST 経路で載せる（ルートのみだと環境により取りこぼす対策）。 */
+  var ZAIKO_SUPPLY_META_WEEK_RESET = '__weekConsumedReset';
   var LS_NISHI_OPERATOR = 'zaiko_nishi_order_by';
   var LS_KAIGO_NISHI = 'kaigo_nishi';
   var LS_KAIGO_MINAMI = 'kaigo_minami';
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.8';
+  var ZAIKO_HTML_VERSION = '1.0.9';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1028,7 +1030,15 @@
     return t === '' ? null : t;
   }
 
-  /** ルートが空でも settings に値があれば採用（GAS と古い JSON で片方のみ埋まりがち） */
+  /** サーバー supply 内メタ（GET スナップショットの d.supply のみ参照。ローカル db は見ない） */
+  function readNishiConsumedResetFromSupplyPayload(supply) {
+    if (!supply || typeof supply !== 'object') return null;
+    var row = supply[ZAIKO_SUPPLY_META_WEEK_RESET];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+    return trimNonemptyResetAt(row.at);
+  }
+
+  /** ルート / settings に加え supply メタから採用（後方互換つき） */
   function applyNishiConsumedResetFromMergedSnapshot(d) {
     if (!d || typeof d !== 'object') {
       syncNishiConsumedResetMirror();
@@ -1038,7 +1048,8 @@
     var sHas = d.settings && typeof d.settings === 'object' &&
       Object.prototype.hasOwnProperty.call(d.settings, 'nishiConsumedResetAt');
     var s = trimNonemptyResetAt(sHas ? d.settings.nishiConsumedResetAt : null);
-    var pick = r || s;
+    var m = readNishiConsumedResetFromSupplyPayload(d.supply);
+    var pick = r || s || m;
     if (pick) db.nishiConsumedResetAt = pick;
     syncNishiConsumedResetMirror();
   }
@@ -1050,7 +1061,8 @@
     if (!d || typeof d !== 'object') return null;
     return trimNonemptyResetAt(Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt') ? d.nishiConsumedResetAt : null) ||
       (d.settings && Object.prototype.hasOwnProperty.call(d.settings, 'nishiConsumedResetAt')
-        ? trimNonemptyResetAt(d.settings.nishiConsumedResetAt) : null);
+        ? trimNonemptyResetAt(d.settings.nishiConsumedResetAt) : null) ||
+      readNishiConsumedResetFromSupplyPayload(d.supply);
   }
 
   /** db 直下と settings の両方へ（GAS が settings にも残すので GET で取りこぼしにくくする） */
@@ -1868,6 +1880,8 @@
     });
     db.nishiConsumedResetAt = nowStamp();
     syncNishiConsumedResetMirror();
+    if (!db.supply || typeof db.supply !== 'object') db.supply = {};
+    db.supply[ZAIKO_SUPPLY_META_WEEK_RESET] = { at: db.nishiConsumedResetAt };
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
