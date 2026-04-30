@@ -178,7 +178,7 @@
     .btn-pink:hover { background: #db2777; border-color: #be185d; }
     .honbu-ui-ver {
       margin: 0 0 0.35rem 0;
-      font-size: 0.65rem;
+      font-size: 0.8rem;
       line-height: 1.2;
       color: #94a3b8;
       letter-spacing: 0.04em;
@@ -363,7 +363,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.0';
+  var ZAIKO_HTML_VERSION = '1.0.2';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1832,8 +1832,8 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    // GAS 応答で mergeFromServer するため settings も送る（送らないとサーバの古い在庫数で上書きされ、表示が戻る）
-    return postGAS({ includeSettings: true, skipSuccessAlert: true })
+    // GAS へ settings+supply を送る。POST 応答の mergeFromServer は在庫数の反映を打ち消すことがあるため適用しない（他は resetNishiWeekConsumed と同様）
+    return postGAS({ includeSettings: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -1875,7 +1875,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    return postGAS({ includeSettings: true, skipSuccessAlert: true })
+    return postGAS({ includeSettings: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true })
       .then(function () {
         renderHonbu();
         renderNishi();
