@@ -160,6 +160,15 @@
     }
     .honbu-disc-box p, .honbu-disc-box p.disc-line { margin: 0.2rem 0; color: #b91c1c; font-size: 0.95rem; }
     .honbu-disc-confirm { flex-shrink: 0; margin-top: 0.1rem; }
+    .consumed-period-msg {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #1d4ed8;
+      margin: 0.65rem auto 0;
+      max-width: 48rem;
+      text-align: center;
+      line-height: 1.5;
+    }
     .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
     .comms-line-honbu-alert { color: #b91c1c; font-size: 1.08rem; font-weight: 600; }
     .comms-input-row { max-width: 36rem; margin: 0.4rem auto 0; }
@@ -221,17 +230,7 @@
             <button type="button" class="btn" id="honbu-msg-send">送信</button>
           </div>
         </div>
-        <div class="row-flex" style="flex-wrap: wrap; margin: 0.5rem 0 0.25rem;">
-          <div>
-            <label>パット類・集計期間（週：月曜〜日曜）</label><br />
-            <div>
-              <button type="button" class="btn btn-ghost" id="h-week-prev" title="前週">◀</button>
-              <span id="h-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
-              <button type="button" class="btn btn-ghost" id="h-week-next" title="次週">▶</button>
-              <button type="button" class="btn btn-ghost" id="h-week-today" title="今週">今週</button>
-            </div>
-          </div>
-        </div>
+        <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
           西在庫＝<strong>西（パット）の在庫数(設定)</strong>−<strong>西消費</strong>＋<strong>西補充累計</strong>。西消費の欄（週次介護の消費数）に 1 などが入ると、在庫数よりちょうどその分だけ西在庫は少なく表示されます。在庫数の数字に西在庫を揃えたいときは、設定のパット用「在庫数変更」を押して補充累計を合わせてください。
@@ -280,7 +279,6 @@
       <div class="card">
         <div class="row-flex" style="flex-wrap: wrap;">
           <div>
-            <p class="meta-line" id="nishi-consumed-period" style="margin: 0 0 0.4rem; max-width: 48rem; line-height:1.5;"></p>
             <div>
               <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
@@ -292,6 +290,10 @@
             <input type="text" id="global-sender-nishi" placeholder="必ず入力" style="min-width:12rem" />
           </div>
         </div>
+        <div id="nishi-disc-wrap" class="honbu-disc-wrap" hidden style="justify-content:center; max-width:36rem; margin-left:auto; margin-right:auto;">
+          <div id="nishi-disc-lines" class="honbu-disc-box"></div>
+          <button type="button" class="btn honbu-disc-confirm" id="nishi-disc-confirm">確認</button>
+        </div>
         <div id="nishi-comms" style="text-align: center; margin: 0.6rem 0; max-width: 36rem; margin-left: auto; margin-right: auto;">
           <p class="comms-line" id="nishi-msg-latest">（直近のメッセージはありません）</p>
           <div class="comms-input-row comms-input-row--inline">
@@ -299,6 +301,7 @@
             <button type="button" class="btn" id="nishi-msg-send">送信</button>
           </div>
         </div>
+        <p class="consumed-period-msg" id="nishi-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <div class="table-wrap">
           <table>
@@ -363,7 +366,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.4';
+  var ZAIKO_HTML_VERSION = '1.0.5';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -756,31 +759,35 @@
     if (diff > 0) return '予定より' + diff + '個多いようです';
     return '';
   }
-  function updateHonbuDiscrepancyBanner() {
-    var wrap = document.getElementById('honbu-disc-wrap');
-    var linesBox = document.getElementById('honbu-disc-lines');
-    if (!wrap || !linesBox) return;
-    var lines = [];
-    ensureProductRows();
-    (db.settings.supplyProducts || []).forEach(function (p) {
-      if (!db.supply[p]) return;
-      if (hasOpenDiscrepancy(db.supply[p])) {
-        lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.supply[p].discrepancy)));
+  function updateDiscrepancyBanners() {
+    function fill(wrapId, linesId) {
+      var wrap = document.getElementById(wrapId);
+      var linesBox = document.getElementById(linesId);
+      if (!wrap || !linesBox) return;
+      var lines = [];
+      ensureProductRows();
+      (db.settings.supplyProducts || []).forEach(function (p) {
+        if (!db.supply[p]) return;
+        if (hasOpenDiscrepancy(db.supply[p])) {
+          lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.supply[p].discrepancy)));
+        }
+      });
+      (db.settings.dailyProducts || []).forEach(function (p) {
+        if (!db.daily[p]) return;
+        if (hasOpenDiscrepancy(db.daily[p])) {
+          lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.daily[p].discrepancy)));
+        }
+      });
+      if (lines.length === 0) {
+        linesBox.innerHTML = '';
+        wrap.setAttribute('hidden', '');
+      } else {
+        wrap.removeAttribute('hidden');
+        linesBox.innerHTML = lines.map(function (L) { return '<p class="disc-line">' + L + '</p>'; }).join('');
       }
-    });
-    (db.settings.dailyProducts || []).forEach(function (p) {
-      if (!db.daily[p]) return;
-      if (hasOpenDiscrepancy(db.daily[p])) {
-        lines.push(escapeText(p) + '　' + escapeText(discrepancyPlainMessage(db.daily[p].discrepancy)));
-      }
-    });
-    if (lines.length === 0) {
-      linesBox.innerHTML = '';
-      wrap.setAttribute('hidden', '');
-    } else {
-      wrap.removeAttribute('hidden');
-      linesBox.innerHTML = lines.map(function (L) { return '<p class="disc-line">' + L + '</p>'; }).join('');
     }
+    fill('honbu-disc-wrap', 'honbu-disc-lines');
+    fill('nishi-disc-wrap', 'nishi-disc-lines');
   }
   function resolveAllOpenDiscrepancies() {
     ensureProductRows();
@@ -802,7 +809,7 @@
       any = true;
     });
     if (!any) {
-      updateHonbuDiscrepancyBanner();
+      updateDiscrepancyBanners();
       return;
     }
     db.lastSynced = nowStamp();
@@ -810,7 +817,7 @@
     saveDb();
     return postGAS({ skipSuccessAlert: true })
       .then(function () {
-        updateHonbuDiscrepancyBanner();
+        updateDiscrepancyBanners();
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
@@ -1217,17 +1224,14 @@
 
   function renderHonbu() {
     ensureProductRows();
-    updateHonbuDiscrepancyBanner();
+    updateDiscrepancyBanners();
+    updateConsumedPeriodLabels();
     var ptb = document.getElementById('honbu-pat-tbody');
     var dtb = document.getElementById('honbu-daily-tbody');
     ptb.innerHTML = '';
     dtb.innerHTML = '';
     var allN = {};
-    // 西タブの週(weekMonday)基準。設定の在庫数 (initial) を直後に他タブへ出すため、本部/西の週を一致させる
     var wN = weekMonday;
-    var wHonbu = weekMondayHonbu;
-    var hLabel = document.getElementById('h-week-label');
-    if (hLabel) hLabel.textContent = ymd(wHonbu) + ' 〜 ' + ymd(addDays(wHonbu, 6)) + '（月〜日）';
     var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
     db.settings.supplyProducts.forEach(function (p) {
       allN[p] = getNishiWeekConsumed(p, wN);
@@ -1496,22 +1500,24 @@
     });
   }
 
-  function updateNishiConsumedPeriodLabel() {
-    var el = document.getElementById('nishi-consumed-period');
-    if (!el) return;
+  function updateConsumedPeriodLabels() {
+    var ids = ['honbu-consumed-period', 'nishi-consumed-period'];
     var start = (db && db.nishiConsumedResetAt) ? String(db.nishiConsumedResetAt).trim() : '';
     var today = ymd(new Date());
-    if (!start) {
-      el.textContent = '週次消費の集計期間: 未設定（「週次消費数リセット」を押すと、リセット日時から本日までの期間を表示します）';
-      return;
-    }
-    el.textContent = '週次消費の集計期間: ' + start + ' ～ ' + today + '（本日）';
+    var txt = !start
+      ? '週次消費の集計期間: 未設定（「週次消費数リセット」を押すと、リセット日時から本日までの期間を表示します）'
+      : '週次消費の集計期間: ' + start + ' ～ ' + today + '（本日）';
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    });
   }
 
   function renderNishi() {
     ensureProductRows();
     var w = weekMonday;
-    updateNishiConsumedPeriodLabel();
+    updateDiscrepancyBanners();
+    updateConsumedPeriodLabels();
     var ptb = document.getElementById('n-pat-tbody');
     var dtb = document.getElementById('n-daily-tbody');
     ptb.innerHTML = '';
@@ -1946,40 +1952,6 @@
     });
   }
 
-  var hwp = document.getElementById('h-week-prev');
-  if (hwp) {
-    hwp.addEventListener('click', function () {
-      weekMondayHonbu = addDays(weekMondayHonbu, -7);
-      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
-      weekMonday = new Date(weekMondayHonbu.getTime());
-      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
-      renderHonbu();
-      renderNishi();
-    });
-  }
-  var hwn = document.getElementById('h-week-next');
-  if (hwn) {
-    hwn.addEventListener('click', function () {
-      weekMondayHonbu = addDays(weekMondayHonbu, 7);
-      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
-      weekMonday = new Date(weekMondayHonbu.getTime());
-      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
-      renderHonbu();
-      renderNishi();
-    });
-  }
-  var hwt = document.getElementById('h-week-today');
-  if (hwt) {
-    hwt.addEventListener('click', function () {
-      weekMondayHonbu = getMonday(new Date());
-      try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
-      weekMonday = new Date(weekMondayHonbu.getTime());
-      try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
-      renderHonbu();
-      renderNishi();
-    });
-  }
-
   function activateTab(n) {
     document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === n); });
     document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-panel') === n); });
@@ -2402,8 +2374,11 @@
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
     if (nishiSyncBtn) nishiSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     if (honbuSyncBtn) honbuSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
-    var discConf = document.getElementById('honbu-disc-confirm');
-    if (discConf) discConf.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
+    function bindDiscConfirm(btn) {
+      if (btn) btn.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
+    }
+    bindDiscConfirm(document.getElementById('honbu-disc-confirm'));
+    bindDiscConfirm(document.getElementById('nishi-disc-confirm'));
     updateFacilityHeader();
     renderStamp();
     renderSettingsFull();
