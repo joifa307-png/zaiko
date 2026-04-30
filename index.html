@@ -366,7 +366,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.7';
+  var ZAIKO_HTML_VERSION = '1.0.8';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1004,6 +1004,55 @@
     } catch (e) { return { _raw: text }; }
   }
 
+  function gasResponseOk(v) {
+    if (v === true || v === 1) return true;
+    if (typeof v === 'string') return String(v).toLowerCase().trim() === 'true';
+    return false;
+  }
+
+  /** { ok, data } の二重ラップまで除去してスナップショット相当を返す */
+  function unwrapGasData(obj) {
+    var d = obj;
+    var depth = 0;
+    while (depth < 6 && d && typeof d === 'object' && !Array.isArray(d) && gasResponseOk(d.ok) &&
+      d.data != null && typeof d.data === 'object' && !Array.isArray(d.data)) {
+      d = d.data;
+      depth++;
+    }
+    return d;
+  }
+
+  function trimNonemptyResetAt(v) {
+    if (v == null) return null;
+    var t = String(v).trim();
+    return t === '' ? null : t;
+  }
+
+  /** ルートが空でも settings に値があれば採用（GAS と古い JSON で片方のみ埋まりがち） */
+  function applyNishiConsumedResetFromMergedSnapshot(d) {
+    if (!d || typeof d !== 'object') {
+      syncNishiConsumedResetMirror();
+      return;
+    }
+    var r = trimNonemptyResetAt(Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt') ? d.nishiConsumedResetAt : null);
+    var sHas = d.settings && typeof d.settings === 'object' &&
+      Object.prototype.hasOwnProperty.call(d.settings, 'nishiConsumedResetAt');
+    var s = trimNonemptyResetAt(sHas ? d.settings.nishiConsumedResetAt : null);
+    var pick = r || s;
+    if (pick) db.nishiConsumedResetAt = pick;
+    syncNishiConsumedResetMirror();
+  }
+
+  function extractNishiConsumedResetFromGasText(text) {
+    var o = parseGas(text);
+    if (!o || typeof o !== 'object' || Object.prototype.hasOwnProperty.call(o, '_raw')) return null;
+    var d = unwrapGasData(o);
+    if (!d || typeof d !== 'object') return null;
+    return trimNonemptyResetAt(Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt') ? d.nishiConsumedResetAt : null) ||
+      (d.settings && Object.prototype.hasOwnProperty.call(d.settings, 'nishiConsumedResetAt')
+        ? trimNonemptyResetAt(d.settings.nishiConsumedResetAt) : null);
+  }
+
   /** db 直下と settings の両方へ（GAS が settings にも残すので GET で取りこぼしにくくする） */
   function syncNishiConsumedResetMirror() {
     if (!db.settings || typeof db.settings !== 'object') db.settings = {};
@@ -1011,30 +1060,9 @@
     db.settings.nishiConsumedResetAt = v;
   }
 
-  /** GET 応答 unwrap の取りこぼし対策 */
-  function applyNishiConsumedResetFromParsedTopLevel(o) {
-    if (!o || typeof o !== 'object') return;
-    var snap = o.data && typeof o.data === 'object' && !Array.isArray(o.data) ? o.data : null;
-    if (!snap) return;
-    var cand = '';
-    if (Object.prototype.hasOwnProperty.call(snap, 'nishiConsumedResetAt') && snap.nishiConsumedResetAt != null && String(snap.nishiConsumedResetAt).trim() !== '') {
-      cand = String(snap.nishiConsumedResetAt).trim();
-    }
-    if (!cand && snap.settings && snap.settings.nishiConsumedResetAt != null && String(snap.settings.nishiConsumedResetAt).trim() !== '') {
-      cand = String(snap.settings.nishiConsumedResetAt).trim();
-    }
-    if (cand) {
-      db.nishiConsumedResetAt = cand;
-      syncNishiConsumedResetMirror();
-    }
-  }
-
   function mergeFromServer(raw) {
-    var d = raw;
+    var d = unwrapGasData(raw);
     if (!d || typeof d !== 'object') return;
-    if (d.data && typeof d.data === 'object' && !Array.isArray(d.data) && d.ok === true) {
-      d = d.data;
-    }
     if (d.settings && typeof d.settings === 'object' && Object.keys(d.settings).length > 0) {
       if (!db.settings || typeof db.settings !== 'object') db.settings = {};
       if (!Array.isArray(db.settings.supplyProducts)) db.settings.supplyProducts = [];
@@ -1050,9 +1078,6 @@
         d.settings.westStaff = db.settings.westStaff.slice();
       }
       db.settings = d.settings;
-      if (db.settings.nishiConsumedResetAt != null && String(db.settings.nishiConsumedResetAt).trim() !== '') {
-        db.nishiConsumedResetAt = String(db.settings.nishiConsumedResetAt).trim();
-      }
     }
     if (d.supply && typeof d.supply === 'object') {
       if (!db.supply || typeof db.supply !== 'object') db.supply = {};
@@ -1078,11 +1103,7 @@
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
-    if (Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt')) {
-      var rav = d.nishiConsumedResetAt;
-      db.nishiConsumedResetAt = rav != null && String(rav).trim() !== '' ? String(rav).trim() : '';
-    }
-    syncNishiConsumedResetMirror();
+    applyNishiConsumedResetFromMergedSnapshot(d);
     updateFacilityHeader();
   }
 
@@ -1095,22 +1116,24 @@
 
   function resolveGASBody(o) {
     if (!o || typeof o !== 'object') return o;
-    // GAS: { ok: true, data: snapshot }。snapshot 直下の nishiConsumedResetAt は data 側にのみあるため ok 時は常に unwrap する
+    var d = unwrapGasData(o);
+    if (d.settings || d.supply || d.daily || d.message ||
+      Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt')) return d;
     if (o.data && typeof o.data === 'object' && !Array.isArray(o.data)) {
-      if (o.ok === true) return o.data;
+      if (gasResponseOk(o.ok)) return unwrapGasData(o.data);
       if (o.data.settings || o.data.supply || o.data.daily || o.data.message) return o.data;
     }
-    if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return o.body;
-    if (o.payload && typeof o.payload === 'object') return o.payload;
-    if (o.result && typeof o.result === 'object') return o.result;
-    return o;
+    if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return unwrapGasData(o.body);
+    if (o.payload && typeof o.payload === 'object') return unwrapGasData(o.payload);
+    if (o.result && typeof o.result === 'object') return unwrapGasData(o.result);
+    return d;
   }
 
   /** POST 応答にマージ済みスナップショットがあればローカルへ反映（他端末と同じ GAS 状態に揃える） */
   function applySnapshotFromPostResponse(text) {
     if (!text || typeof text !== 'string') return;
     var o = parseGas(text);
-    if (!o || typeof o !== 'object' || o.ok === false) return;
+    if (!o || typeof o !== 'object' || o.ok === false || String(o.ok).toLowerCase() === 'false') return;
     var body = resolveGASBody(o);
     if (!body || typeof body !== 'object') return;
     if (!body.settings && !body.supply && !body.daily) return;
@@ -1217,12 +1240,27 @@
     var preview = t;
     if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
     gasLog((fromLabel || 'GET 受信') + ' raw', preview, { len: t ? t.length : 0 });
+    if (t && /^\s*<(!DOCTYPE|html)\b/i.test(t)) {
+      var errHtml = document.getElementById('honbu-err');
+      if (errHtml) { errHtml.textContent = 'GETがHTMLを返しています（ウェブアプリURL・トークンを確認）'; errHtml.hidden = false; }
+      return;
+    }
     var o = parseGas(t);
     gasLog((fromLabel || 'GET 受信') + ' parseGas', o);
+    if (o && Object.prototype.hasOwnProperty.call(o, '_raw')) {
+      var errParse = document.getElementById('honbu-err');
+      if (errParse) { errParse.textContent = 'GETのJSON解析に失敗しました（開発者コンソールのログを確認）'; errParse.hidden = false; }
+    }
     var body = resolveGASBody(o);
     gasLog((fromLabel || 'GET 受信') + ' resolveGASBody', body);
     mergeFromServer(body);
-    applyNishiConsumedResetFromParsedTopLevel(o);
+    if (!trimNonemptyResetAt(db.nishiConsumedResetAt)) {
+      var fb = extractNishiConsumedResetFromGasText(t);
+      if (fb) {
+        db.nishiConsumedResetAt = fb;
+        syncNishiConsumedResetMirror();
+      }
+    }
     if (o && o.lastSynced) db.lastSynced = o.lastSynced;
     if (o && o.lastSyncedBy) db.lastSyncedBy = o.lastSyncedBy;
     if (body && body.lastSynced) db.lastSynced = body.lastSynced;
