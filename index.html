@@ -366,7 +366,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.5';
+  var ZAIKO_HTML_VERSION = '1.0.6';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1029,8 +1029,9 @@
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
-    if (d.nishiConsumedResetAt != null && String(d.nishiConsumedResetAt).trim() !== '') {
-      db.nishiConsumedResetAt = String(d.nishiConsumedResetAt).trim();
+    if (Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt')) {
+      var rav = d.nishiConsumedResetAt;
+      db.nishiConsumedResetAt = rav != null && String(rav).trim() !== '' ? String(rav).trim() : '';
     }
     updateFacilityHeader();
   }
@@ -1044,7 +1045,11 @@
 
   function resolveGASBody(o) {
     if (!o || typeof o !== 'object') return o;
-    if (o.data && typeof o.data === 'object' && (o.data.settings || o.data.supply || o.data.daily || o.data.message)) return o.data;
+    // GAS: { ok: true, data: snapshot }。snapshot 直下の nishiConsumedResetAt は data 側にのみあるため ok 時は常に unwrap する
+    if (o.data && typeof o.data === 'object' && !Array.isArray(o.data)) {
+      if (o.ok === true) return o.data;
+      if (o.data.settings || o.data.supply || o.data.daily || o.data.message) return o.data;
+    }
     if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return o.body;
     if (o.payload && typeof o.payload === 'object') return o.payload;
     if (o.result && typeof o.result === 'object') return o.result;
