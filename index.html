@@ -233,6 +233,9 @@
           </div>
         </div>
         <div class="section-title"><h2>パット類</h2></div>
+        <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
+          西在庫＝<strong>西（パット）の在庫数(設定)</strong>−<strong>西消費</strong>＋<strong>西補充累計</strong>。西消費の欄（週次介護の消費数）に 1 などが入ると、在庫数よりちょうどその分だけ西在庫は少なく表示されます。在庫数の数字に西在庫を揃えたいときは、設定のパット用「在庫数変更」を押して補充累計を合わせてください。
+        </p>
         <div class="table-wrap">
           <table id="honbu-pat">
             <thead>
@@ -277,11 +280,8 @@
       <div class="card">
         <div class="row-flex" style="flex-wrap: wrap;">
           <div>
-            <label>集計期間（週：月曜〜日曜）</label><br />
+            <p class="meta-line" id="nishi-consumed-period" style="margin: 0 0 0.4rem; max-width: 48rem; line-height:1.5;"></p>
             <div>
-              <button type="button" class="btn btn-ghost" id="n-week-prev" title="前週">◀</button>
-              <span id="n-week-label" style="min-width: 12rem; text-align: center; display: inline-block;"></span>
-              <button type="button" class="btn btn-ghost" id="n-week-next" title="次週">▶</button>
               <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             </div>
             <p class="meta-line" id="nishi-import-info" style="margin: 0.35rem 0 0;"></p>
@@ -363,7 +363,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.2';
+  var ZAIKO_HTML_VERSION = '1.0.4';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -541,7 +541,8 @@
       daily: {},
       message: { from: '', text: '', sentAt: '' },
       lastSynced: '',
-      lastSyncedBy: ''
+      lastSyncedBy: '',
+      nishiConsumedResetAt: ''
     };
   }
 
@@ -564,6 +565,7 @@
       : { from: '', text: '', sentAt: '' };
     o.lastSynced = raw.lastSynced != null ? String(raw.lastSynced) : '';
     o.lastSyncedBy = raw.lastSyncedBy != null ? String(raw.lastSyncedBy) : '';
+    o.nishiConsumedResetAt = raw.nishiConsumedResetAt != null && String(raw.nishiConsumedResetAt).trim() !== '' ? String(raw.nishiConsumedResetAt).trim() : '';
     if (!o.settings.dailyProducts.length) o.settings.dailyProducts = DEFAULT_DAILY.slice();
     return o;
   }
@@ -956,6 +958,7 @@
       sentAt: nowStamp(),
       supply: supplyForSend,
       daily: db.daily,
+      nishiConsumedResetAt: (db && db.nishiConsumedResetAt != null) ? String(db.nishiConsumedResetAt) : '',
       message: db.message && typeof db.message === 'object' && !Array.isArray(db.message)
         ? { from: String(db.message.from || ''), text: String(db.message.text || ''), sentAt: String(db.message.sentAt || '') }
         : { from: '', text: '', sentAt: '' }
@@ -1019,6 +1022,9 @@
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
+    if (d.nishiConsumedResetAt != null && String(d.nishiConsumedResetAt).trim() !== '') {
+      db.nishiConsumedResetAt = String(d.nishiConsumedResetAt).trim();
+    }
     updateFacilityHeader();
   }
 
@@ -1490,10 +1496,22 @@
     });
   }
 
+  function updateNishiConsumedPeriodLabel() {
+    var el = document.getElementById('nishi-consumed-period');
+    if (!el) return;
+    var start = (db && db.nishiConsumedResetAt) ? String(db.nishiConsumedResetAt).trim() : '';
+    var today = ymd(new Date());
+    if (!start) {
+      el.textContent = '週次消費の集計期間: 未設定（「週次消費数リセット」を押すと、リセット日時から本日までの期間を表示します）';
+      return;
+    }
+    el.textContent = '週次消費の集計期間: ' + start + ' ～ ' + today + '（本日）';
+  }
+
   function renderNishi() {
     ensureProductRows();
     var w = weekMonday;
-    document.getElementById('n-week-label').textContent = ymd(w) + ' 〜 ' + ymd(addDays(w, 6)) + '（月〜日）';
+    updateNishiConsumedPeriodLabel();
     var ptb = document.getElementById('n-pat-tbody');
     var dtb = document.getElementById('n-daily-tbody');
     ptb.innerHTML = '';
@@ -1748,6 +1766,7 @@
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       db.supply[p].nishiConsumedSync = 0;
     });
+    db.nishiConsumedResetAt = nowStamp();
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
@@ -1920,22 +1939,6 @@
     if (t.getAttribute('data-act') === 'n-daily-recv') { doNishiDailyReceiveConfirm(t.getAttribute('data-p')); }
   });
 
-  document.getElementById('n-week-prev').addEventListener('click', function () {
-    weekMonday = addDays(weekMonday, -7);
-    try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
-    weekMondayHonbu = new Date(weekMonday.getTime());
-    try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
-    renderNishi();
-    renderHonbu();
-  });
-  document.getElementById('n-week-next').addEventListener('click', function () {
-    weekMonday = addDays(weekMonday, 7);
-    try { localStorage.setItem('zaiko_week_mon', ymd(weekMonday)); } catch (e) {}
-    weekMondayHonbu = new Date(weekMonday.getTime());
-    try { localStorage.setItem(LS_HONBU_WEEK, ymd(weekMondayHonbu)); } catch (e) {}
-    renderNishi();
-    renderHonbu();
-  });
   var nResetWeekConsumedBtn = document.getElementById('n-reset-week-consumed');
   if (nResetWeekConsumedBtn) {
     nResetWeekConsumedBtn.addEventListener('click', function () {
