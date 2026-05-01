@@ -368,7 +368,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.0.9';
+  var ZAIKO_HTML_VERSION = '1.1.1';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -501,6 +501,17 @@
     return String(s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;');
+  }
+
+  /** data-p が品名由来のため CSS セレクタに直埋めしない（特殊文字で querySelector が壊れるため） */
+  function findPatTbodyInputByProduct(tbodyId, inputClass, product) {
+    var tb = document.getElementById(tbodyId);
+    if (!tb) return null;
+    var list = tb.querySelectorAll('input.' + inputClass + '[data-p]');
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].getAttribute('data-p') === product) return list[i];
+    }
+    return null;
   }
 
   function defStockRow() { return { initial: 0, warnAt: 10, dangerAt: 5 }; }
@@ -1366,7 +1377,8 @@
       var btnPatNishi = document.createElement('button');
       btnPatNishi.type = 'button';
       btnPatNishi.className = 'btn btn-ghost';
-      btnPatNishi.textContent = '西補充確認';
+      btnPatNishi.textContent = '西へ同期';
+      btnPatNishi.title = '配送予定数量をGASに送り西タブへ表示。在庫数への加算は西の受取確認後です。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
       tr.cells[3].appendChild(document.createTextNode(' '));
@@ -1519,20 +1531,33 @@
     updateMessageAreas();
   }
 
+  /**
+   * 本部・西補充：倉庫受取（hon-pat-soko）とは違い、在庫に効くのは累計 nishiReplenishTotal であり、それは「西」の受取後に増やす。
+   * ここでは入力を確定して GAS に送るだけ（配送中フラグ維持）。Total を足す実装だと確認押下だけで西在庫が即増えていた。
+   */
   function doHonbuPatNishiConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名を入力してください。'); return; }
     ensureProductRows();
+    if (!db.supply[p]) db.supply[p] = defSupplyRow();
     var s = db.supply[p];
-    var a = s.nishiReplenish > 0 ? s.nishiReplenish : 0;
-    if (a <= 0) return;
-    s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + a;
-    s.nishiReplenish = 0;
+    var inp = findPatTbodyInputByProduct('honbu-pat-tbody', 'h-nr', p);
+    if (inp) {
+      var v = inp.value === '' ? NaN : parseFloat(inp.value);
+      s.nishiReplenish = !isNaN(v) ? v : (Number(s.nishiReplenish) || 0);
+    }
+    var a = Number(s.nishiReplenish) || 0;
+    if (a <= 0) { alert('西補充（入力）に数量を入れてから押してください。'); return; }
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
-      .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・西補充確認）'; });
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '西への配送予定を同期しました。在庫は西タブの受取確認後に反映されます。';
+      });
   }
 
   function doHonbuPatSokoConfirm(p) {
@@ -1709,12 +1734,16 @@
     updateMessageAreas();
   }
 
+  /** 予定数どおりすべて受領したときの省略操作（入力欄なしでも累計へ反映する） */
   function doNishiPatConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名（本部上部）を入力してください。'); return; }
     if (!db.supply[p]) return;
     var s = db.supply[p];
-    if (Number(s.nishiReplenish) <= 0) return;
+    var q = Number(s.nishiReplenish) || 0;
+    if (q <= 0) return;
+    s.discrepancy = { expected: q, actual: q, diff: 0, date: nowStamp(), resolved: true };
+    s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + q;
     s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
@@ -1728,19 +1757,21 @@
     var s = db.supply[p];
     var expected = Number(s.nishiReplenish) || 0;
     if (expected <= 0) return;
-    var inp = document.querySelector('.n-recv-supply[data-p="' + p + '"]');
-    var actual = inp ? (parseFloat(inp.value) || 0) : 0;
+    var inp = findPatTbodyInputByProduct('n-pat-tbody', 'n-recv-supply', p);
+    var actualRaw = inp && inp.value !== '' ? parseFloat(inp.value) : NaN;
+    var actual = !isNaN(actualRaw) ? actualRaw : expected;
     if (actual !== expected) {
       s.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
       setAutoDiscrepancyMessage('パット類', p, expected, actual);
     } else {
       s.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
+    s.nishiReplenishTotal = (Number(s.nishiReplenishTotal) || 0) + actual;
     s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = getSender() || '未記入';
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
+    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました'; });
   }
 
   function doNishiPatOrder(p) {
