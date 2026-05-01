@@ -368,7 +368,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.0';
+  var ZAIKO_HTML_VERSION = '1.2.1';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -534,6 +534,8 @@
       nishiOrderAt: '',
       nishiOrderBy: '',
       deliveryCount: 0,
+      /** true の間は本部「納品確認」済みで倉庫在庫は既に減算済み。deliveryCount は西側の配送中／受取UI用にそのまま残す */
+      deliveryCommitted: false,
       minamiIssued: 0,
       sokoCurrent: 0,
       sokoReplenish: 0,
@@ -743,6 +745,12 @@
         if (!db.daily[p]) db.daily[p] = defDailyRow();
         else {
           if (db.daily[p].deliveryCount == null) db.daily[p].deliveryCount = 0;
+          if (typeof db.daily[p].deliveryCommitted !== 'boolean') {
+            db.daily[p].deliveryCommitted = !!db.daily[p].deliveryCommitted;
+          }
+          if (!(Number(db.daily[p].deliveryCount) || 0) && db.daily[p].deliveryCommitted) {
+            db.daily[p].deliveryCommitted = false;
+          }
           if (db.daily[p].minamiIssued == null) db.daily[p].minamiIssued = 0;
           if (db.daily[p].sokoReplenish == null) db.daily[p].sokoReplenish = 0;
           if (db.daily[p].nishiOrderBy == null) db.daily[p].nishiOrderBy = '';
@@ -1507,9 +1515,12 @@
       tr2.cells[2].textContent = formatNishiOrderLineHonbu(d0);
       tr2.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-dv" id="honbu-dv-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
       var dvInp = tr2.cells[3].querySelector('input');
+      var committed = !!(d0.deliveryCommitted);
       dvInp.value = d0.deliveryCount != null && d0.deliveryCount !== '' ? d0.deliveryCount : '';
       dvInp.setAttribute('data-p', p);
       dvInp.setAttribute('data-product', p);
+      dvInp.disabled = committed;
+      dvInp.title = committed ? '納品確認済み。西の受取確認まで数量は固定です。' : '';
       var btnDel = document.createElement('button');
       btnDel.type = 'button';
       btnDel.className = 'btn btn-ghost';
@@ -1518,17 +1529,21 @@
       btnDel.setAttribute('data-p', p);
       tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(btnDel);
-      btnDel.style.display = (Number(d0.deliveryCount) || 0) > 0 ? '' : 'none';
+      var dv = Number(d0.deliveryCount) || 0;
+      btnDel.style.display = (dv > 0 && !committed) ? '' : 'none';
       (function (product) {
         function syncDeliveryFromInp() {
           if (!db.daily[product]) db.daily[product] = defDailyRow();
+          if (db.daily[product].deliveryCommitted) return;
           db.daily[product].deliveryCount = dvInp.value === '' ? 0 : parseFloat(dvInp.value);
           if (isNaN(db.daily[product].deliveryCount)) db.daily[product].deliveryCount = 0;
           console.log('deliveryCount更新:', product, db.daily[product].deliveryCount);
         }
         dvInp.addEventListener('input', function () {
           syncDeliveryFromInp();
-          btnDel.style.display = (Number(db.daily[product].deliveryCount) || 0) > 0 ? '' : 'none';
+          var dR = db.daily[product] || {};
+          var dvn = Number(dR.deliveryCount) || 0;
+          btnDel.style.display = (dvn > 0 && !dR.deliveryCommitted) ? '' : 'none';
           saveDb();
           renderNishi();
           scheduleOperationalSync('honbu-delivery-input');
@@ -1665,13 +1680,14 @@
       .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = '倉庫補充受取を反映（パット）'; });
   }
 
-  /** 日用品・納品確認：倉庫在庫から納品数を減算 */
+  /** 日用品・納品確認：倉庫在庫だけ減算。deliveryCount は西の「配送中／受取」用に維持（ゼロにするとUIが消えるため） */
   function doHonbuDailyDeliveryConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名を入力してください。'); return; }
     ensureProductRows();
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
+    if (d0.deliveryCommitted) { alert('既にこの品目は納品確認済みです。西側の受取確認が終わるまで待ってください。'); return; }
     var inp = findPatTbodyInputByProduct('honbu-daily-tbody', 'h-dv', p);
     if (inp) {
       var v = inp.value === '' ? NaN : parseFloat(inp.value);
@@ -1680,7 +1696,7 @@
     var a = Number(d0.deliveryCount) || 0;
     if (a <= 0) { alert('納品数（入力）に数量を入れてから押してください。'); return; }
     d0.sokoCurrent = (Number(d0.sokoCurrent) || 0) - a;
-    d0.deliveryCount = 0;
+    d0.deliveryCommitted = true;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
@@ -1921,6 +1937,7 @@
       db.daily[p].nishiOrderAt = '';
       db.daily[p].nishiOrderBy = '';
       db.daily[p].deliveryCount = 0;
+      db.daily[p].deliveryCommitted = false;
     }
     if (p === 'トイレットペーパー') {
       console.log('doNishiDailyReset実行 トイレットペーパー:', db.daily[p] ? { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate } : 'なし');
@@ -1953,6 +1970,7 @@
       d0.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
     d0.deliveryCount = 0;
+    d0.deliveryCommitted = false;
     d0.nishiOrder = 0;
     d0.nishiOrderDate = '';
     d0.nishiOrderAt = '';
@@ -2061,6 +2079,7 @@
       var d = db.daily[p];
       d.sokoCurrent = 0;
       d.deliveryCount = 0;
+      d.deliveryCommitted = false;
       d.minamiIssued = 0;
       d.sokoReplenish = 0;
       d.discrepancy = defDiscrepancyResolved();
@@ -2098,6 +2117,7 @@
       if (!db.daily[p]) db.daily[p] = defDailyRow();
       var d = db.daily[p];
       d.deliveryCount = 0;
+      d.deliveryCommitted = false;
       d.minamiIssued = 0;
       d.sokoReplenish = 0;
       d.nishiOrder = 0;
