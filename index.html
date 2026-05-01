@@ -368,7 +368,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.1.4';
+  var ZAIKO_HTML_VERSION = '1.1.5';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -735,12 +735,14 @@
     return ns.initial - nWeek + (Number(s.nishiReplenishTotal) || 0);
   }
 
+  /** 倉庫（パット）: 設定在庫 − 西側へ出した累計 − 配送中（本部「西へ補充」で確定済みだがまだ未受取） − 南累計 + 倉庫補充分 */
   function patStockSoko(p) {
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
     var s = db.supply[p] || defSupplyRow();
     var mAll = sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] != null ? sumSuppliesAllTime(LS_KAIGO_MINAMI, [p])[p] : 0;
-    return sk.initial - (Number(s.nishiReplenishTotal) || 0) - mAll + (Number(s.sokoReplenishTotal) || 0);
+    var outWest = (Number(s.nishiReplenishTotal) || 0) + (Number(s.nishiReplenish) || 0);
+    return sk.initial - outWest - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
   /** 日用品・倉庫在庫（B案: 納品・南卸の入力中は含めない。確認でTotalへ加算） */
@@ -1532,8 +1534,9 @@
   }
 
   /**
-   * 本部・西補充：倉庫受取（hon-pat-soko）とは違い、在庫に効くのは累計 nishiReplenishTotal であり、それは「西」の受取後に増やす。
-   * ここでは補充予定の入力を確定して GAS に送るだけ（配送中フラグ維持）。Total を足す実装だと確認押下だけで西在庫が即増えていた。
+   * 本部・西補充：西在庫表示はまだ「西」の受取で nishiReplenishTotal が増えるまで変わらない。
+   * 倉庫パットは patStockSoko が配送中の nishiReplenish も見るので、ここで GAS に送った時点から倉庫表示が減る。
+   * Total を西の受け取りより前に足す実装だと西在庫も即増えてしまうため廃止。
    */
   function doHonbuPatNishiConfirm(p) {
     var sen = getSender();
@@ -1556,7 +1559,7 @@
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = '西への補充予定を送信しました。在庫は西タブの受取確認後に反映されます。';
+        if (info) info.textContent = '西への補充予定を送信しました（倉庫パット表示はその分だけ減ります）。西在庫の反映は西タブの受取確認後です。';
       });
   }
 
@@ -2241,7 +2244,7 @@
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
-    html += '<p class="meta-line" style="margin-top:0.4rem">※パットの表示は「在庫数 − 週次西消費 + 西補充累計」（西）、倉庫は西・南の流れです。日用品は納品・南卸などの累計があるため、上部の<strong>設定の在庫数＝表示に揃える</strong>で表示を正に合わせます。</p>';
+    html += '<p class="meta-line" style="margin-top:0.4rem">※パット：西は「在庫数 − 週次西消費 + 西補充累計（受取後）」。倉庫は「在庫数 − 南累計 − 西へ累計済み − 配送中の西へ分 + 倉庫補充分」※配送中とは本部で「西へ補充」済みで西が未受取の数量。日用品は納品等の累計があるため<strong>設定の在庫数＝表示に揃える</strong>で合わせてください。</p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
