@@ -368,7 +368,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.1.1';
+  var ZAIKO_HTML_VERSION = '1.1.2';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1377,8 +1377,8 @@
       var btnPatNishi = document.createElement('button');
       btnPatNishi.type = 'button';
       btnPatNishi.className = 'btn btn-ghost';
-      btnPatNishi.textContent = '西へ同期';
-      btnPatNishi.title = '配送予定数量をGASに送り西タブへ表示。在庫数への加算は西の受取確認後です。';
+      btnPatNishi.textContent = '西へ補充';
+      btnPatNishi.title = '補充予定数量をGASに送り西タブへ表示。在庫数への加算は西の受取確認後です。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
       tr.cells[3].appendChild(document.createTextNode(' '));
@@ -1533,7 +1533,7 @@
 
   /**
    * 本部・西補充：倉庫受取（hon-pat-soko）とは違い、在庫に効くのは累計 nishiReplenishTotal であり、それは「西」の受取後に増やす。
-   * ここでは入力を確定して GAS に送るだけ（配送中フラグ維持）。Total を足す実装だと確認押下だけで西在庫が即増えていた。
+   * ここでは補充予定の入力を確定して GAS に送るだけ（配送中フラグ維持）。Total を足す実装だと確認押下だけで西在庫が即増えていた。
    */
   function doHonbuPatNishiConfirm(p) {
     var sen = getSender();
@@ -1556,7 +1556,7 @@
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = '西への配送予定を同期しました。在庫は西タブの受取確認後に反映されます。';
+        if (info) info.textContent = '西への補充予定を送信しました。在庫は西タブの受取確認後に反映されます。';
       });
   }
 
@@ -1928,6 +1928,22 @@
     return { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
   }
 
+  /** 全品目の差異オブジェクトのみ初期化（在庫式は discrepancy を参照しない。メタ行 __weekConsumedReset は触らない） */
+  function resetAllDiscrepancyRecords() {
+    ensureProductRows();
+    Object.keys(db.supply || {}).forEach(function (pk) {
+      if (pk === ZAIKO_SUPPLY_META_WEEK_RESET) return;
+      var row = db.supply[pk];
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+      row.discrepancy = defDiscrepancyResolved();
+    });
+    Object.keys(db.daily || {}).forEach(function (pk) {
+      var row = db.daily[pk];
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+      row.discrepancy = defDiscrepancyResolved();
+    });
+  }
+
   /**
    * 設定テーブル1行分：在庫数（initial）と、その区分に関わる入力・累計・差異をリセット
    * scope: soko-p（倉庫・パット） / soko-d（倉庫・日用品） / nishi-p（西・パット）
@@ -2240,6 +2256,9 @@
     html += '<p class="meta-line" style="margin-top:0.4rem">※西在庫（パット類）は「在庫数 - 週次消費 + 補充累計」、倉庫（パット類）は倉庫在庫数と西・南の流れから計算されます。</p>';
     html += '<p class="meta-line" style="margin-top:0.3rem">パット：下の「在庫数変更」で、セクション1（倉庫）と3（西）の在庫数に合わせ、本部の倉庫/西在庫表示を揃えます。補充（未確分）と差異をリセットし、週次西消費と南累計を保ったまま、以降の在庫計算の起点にします。</p>';
     html += '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn" id="s-apply-baseline-pat">在庫数変更</button></p>';
+    html += '<h2>差異記録のリセット</h2>' +
+      '<p class="meta-line">テスト操作などで残った「予定と受取の差」の記録（差の個数）はすべて初期化します。本部・西の差異バナーも消えます。在庫数・補充累計・週次消費などの計算には使われないため、表示用の在庫数は変わりません。</p>' +
+      '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn btn-ghost" id="s-reset-all-discrepancy">差異をすべて初期化（0）</button> <span id="s-reset-disc-msg" class="ok-msg"></span></p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -2391,6 +2410,34 @@
     if (sokoDBaselineBtn) sokoDBaselineBtn.onclick = function () { applyDailySokoBaselineFromSettings(); };
     var patBaselineBtn = document.getElementById('s-apply-baseline-pat');
     if (patBaselineBtn) patBaselineBtn.onclick = function () { applyPatBaselineFromSettings(); };
+    var resetDiscBtn = document.getElementById('s-reset-all-discrepancy');
+    if (resetDiscBtn) {
+      resetDiscBtn.onclick = function () {
+        if (!confirm('全品目の差異記録を 0 に戻します。在庫の数式は変わりません（差異だけ消去）。実行しますか？')) return;
+        resetAllDiscrepancyRecords();
+        db.lastSynced = nowStamp();
+        db.lastSyncedBy = getSender() || '未記入';
+        saveDb();
+        postGAS({ skipSuccessAlert: true })
+          .then(function () {
+            updateDiscrepancyBanners();
+            renderHonbu();
+            renderNishi();
+            renderStamp();
+            var msg = document.getElementById('s-reset-disc-msg');
+            if (msg) {
+              msg.textContent = '差異を初期化しGASへ反映しました';
+              setTimeout(function () { if (msg) msg.textContent = ''; }, 4500);
+            }
+            var info = document.getElementById('honbu-info');
+            if (info) info.textContent = '差異記録を初期化: ' + nowStamp();
+          })
+          .catch(function (e) {
+            var err = document.getElementById('honbu-err');
+            if (err) { err.textContent = '差異初期化送信エラー: ' + String(e); err.hidden = false; }
+          });
+      };
+    }
     var postAlertDbg = document.getElementById('s-post-alert-debug');
     if (postAlertDbg) {
       postAlertDbg.onchange = function () {
