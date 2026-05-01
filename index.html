@@ -261,7 +261,7 @@
                 <th>品目</th>
                 <th class="col-west">西発注数</th>
                 <th class="col-west">発注日</th>
-                <th>納品数(入力)</th>
+                <th>西へ補充(入力)</th>
                 <th class="col-south col-divide">南卸数(入力)</th>
                 <th class="col-soko">倉庫在庫</th>
                 <th class="col-soko">倉庫補充(入力)</th>
@@ -368,7 +368,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.1.5';
+  var ZAIKO_HTML_VERSION = '1.1.6';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -745,15 +745,13 @@
     return sk.initial - outWest - mAll + (Number(s.sokoReplenishTotal) || 0);
   }
 
-  /** 日用品・倉庫在庫（B案: 納品・南卸の入力中は含めない。確認でTotalへ加算） */
+  /** 日用品・倉庫在庫: 累計納入(deliveryTotal) + 本部「西へ補充」済みだが未受取(deliveryCount)を倉庫から減算。西で受取ると Total に載り Count は 0 に。 */
   function dailySoko(p) {
     ensureProductRows();
     var sk = db.settings.sokoStock[p] || defStockRow();
     var d = db.daily[p] || defDailyRow();
-    return sk.initial
-      - (Number(d.deliveryTotal) || 0)
-      - (Number(d.minamiIssuedTotal) || 0)
-      + (Number(d.sokoReplenishTotal) || 0);
+    var delivered = (Number(d.deliveryTotal) || 0) + (Number(d.deliveryCount) || 0);
+    return sk.initial - delivered - (Number(d.minamiIssuedTotal) || 0) + (Number(d.sokoReplenishTotal) || 0);
   }
 
   function statusFromSokoStock(p) {
@@ -1425,8 +1423,8 @@
       var btnDel = document.createElement('button');
       btnDel.type = 'button';
       btnDel.className = 'btn btn-ghost';
-      btnDel.textContent = '納品確認';
-      btnDel.setAttribute('data-act', 'hon-daily-delivery');
+      btnDel.textContent = '西へ補充';
+      btnDel.setAttribute('data-act', 'hon-daily-nishi-send');
       btnDel.setAttribute('data-p', p);
       tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(btnDel);
@@ -1579,21 +1577,30 @@
       .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = 'GAS 送信（本部・倉庫受取）'; });
   }
 
-  function doHonbuDailyDeliveryConfirm(p) {
+  /** 日用品・本部側の「西へ補充」（パットの hon-pat-nishi と同等。deliveryCount を維持し GAS に送るだけ／倉庫は dailySoko が Count 込みで減算）。 */
+  function doHonbuDailyNishiReplenishConfirm(p) {
     var sen = getSender();
     if (!sen) { alert('操作者名を入力してください。'); return; }
+    ensureProductRows();
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
-    var dc = Number(d0.deliveryCount) || 0;
-    if (dc <= 0) { alert('納品数を入力してから納品確認してください。'); return; }
+    var inp = findPatTbodyInputByProduct('honbu-daily-tbody', 'h-dv', p);
+    if (inp) {
+      var v = inp.value === '' ? NaN : parseFloat(inp.value);
+      d0.deliveryCount = !isNaN(v) ? v : (Number(d0.deliveryCount) || 0);
+    }
+    var a = Number(d0.deliveryCount) || 0;
+    if (a <= 0) { alert('西へ補充（入力）に数量を入れてから押してください。'); return; }
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS().then(function () {
-      renderHonbu();
-      renderNishi();
-      document.getElementById('honbu-info').textContent = 'GAS 送信（本部・納品数・西タブへ）';
-    });
+    return postGAS({ skipSuccessAlert: true })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '日用品の西へ補充予定を送信しました（倉庫表示はその分減っています）。西で受取確認後に確定します。';
+      });
   }
 
   function doHonbuDailyMinamiConfirm(p) {
@@ -1846,15 +1853,16 @@
     var d0 = db.daily[p];
     var expected = Number(d0.deliveryCount) || 0;
     if (expected <= 0) return;
-    var inp = document.querySelector('.n-recv-daily[data-p="' + p + '"]');
-    var actual = inp ? (parseFloat(inp.value) || 0) : 0;
+    var inp = findPatTbodyInputByProduct('n-daily-tbody', 'n-recv-daily', p);
+    var actualRaw = inp && inp.value !== '' ? parseFloat(inp.value) : NaN;
+    var actual = !isNaN(actualRaw) ? actualRaw : expected;
     if (actual !== expected) {
       d0.discrepancy = { expected: expected, actual: actual, diff: actual - expected, date: nowStamp(), resolved: false };
       setAutoDiscrepancyMessage('日用品', p, expected, actual);
     } else {
       d0.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
-    d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + expected;
+    d0.deliveryTotal = (Number(d0.deliveryTotal) || 0) + actual;
     d0.deliveryCount = 0;
     d0.nishiOrder = 0;
     d0.nishiOrderDate = '';
@@ -2035,7 +2043,7 @@
    * 入力中の設定表→DB取り込み、差異の全削除、パット累計調整・日用品累計・発注中クリア、のあと GAS に1回（週次西消費・南累計そのものは消さない。週次もゼロ起点にしたい場合は別途西タブの「週次消費数リセット」）。
    */
   function alignDisplayStockToSettings() {
-    if (!confirm('このデバイスの設定にある「在庫数」を、そのまま本部・西の在庫表示と一致させます。\n未確の補充や納品の途中分・差異記録はリセットされます。パットは週次西消費・南側の総計は今の値のまま使います（週もゼロにしたい場合はあとから西タブでリセット）。\nGAS に送信しますか？')) return Promise.resolve(false);
+    if (!confirm('このデバイスの設定にある「在庫数」を、そのまま本部・西の在庫表示と一致させます。\nパット／日用品とも未確の西へ補充分・進行中南卸など・差異記録はリセットされます。パットは週次西消費・南総計は今の値のまま（週をゼロにしたい場合はあとから西タブでリセット）。\nGAS に送信しますか？')) return Promise.resolve(false);
     flushSettingsStockInputsToDb();
     resetAllDiscrepancyRecords();
     applyPatBaselineCore();
@@ -2070,7 +2078,7 @@
     if (t.getAttribute('data-act') === 'hon-pat-nishi') { doHonbuPatNishiConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-pat-soko') { doHonbuPatSokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
-    if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily-nishi-send') { doHonbuDailyNishiReplenishConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-minami') { doHonbuDailyMinamiConfirm(t.getAttribute('data-p')); }
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
@@ -2236,7 +2244,7 @@
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
     html += '<p><button type="button" class="btn btn-lg" id="s-settings-sync">保存（GASへ送信・全端末反映）</button> <span id="s-settings-sync-msg" class="ok-msg"></span></p>';
     html += '<h2>在庫の見直し</h2>' +
-      '<p class="meta-line">下の「在庫数」を修正した<strong>あとに</strong>、本部・西の表示をその数字に<strong>完全一致</strong>させるときだけ押します。パットは週次西消費・南総計込みの式に<strong>自動で調整（補充分の累計を合わせる）</strong>されます。日用品は納品・南卸・倉庫補充などの<strong>進行中分をすべてクリア</strong>します。差異記録も消えます。<strong>週次の消費そのものは消しません。</strong></p>' +
+      '<p class="meta-line">下の「在庫数」を修正した<strong>あとに</strong>、本部・西の表示をその数字に<strong>完全一致</strong>させるときだけ押します。パットは週次西消費・南総計込みの式に<strong>自動で調整（補充分の累計を合わせる）</strong>されます。日用品は西へ補充・南卸・倉庫補充などの<strong>進行中分をすべてクリア</strong>します。差異記録も消えます。<strong>週次の消費そのものは消しません。</strong></p>' +
       '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn btn-lg" id="s-align-stock-display">設定の在庫数＝表示に揃える</button> <span id="s-align-stock-msg" class="ok-msg"></span></p>';
     html += '<h2>西スタッフ管理</h2><p class="meta-line">発注時の操作者候補（GASに同期）</p><ul id="l-ws" class="slist"></ul><p><input id="new-ws" placeholder="スタッフ名" /> <button type="button" class="btn" id="add-ws">追加</button></p>';
     html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
@@ -2244,7 +2252,7 @@
     html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
     html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
     html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
-    html += '<p class="meta-line" style="margin-top:0.4rem">※パット：西は「在庫数 − 週次西消費 + 西補充累計（受取後）」。倉庫は「在庫数 − 南累計 − 西へ累計済み − 配送中の西へ分 + 倉庫補充分」※配送中とは本部で「西へ補充」済みで西が未受取の数量。日用品は納品等の累計があるため<strong>設定の在庫数＝表示に揃える</strong>で合わせてください。</p>';
+    html += '<p class="meta-line" style="margin-top:0.4rem">※倉庫（パット・日用品共通の考え方）: 設定在庫 − 南の反映 − <strong>西へ補充の受取済み累計 + 本部で確定済みの配送中分</strong> + 倉庫側の受取済み補充沛。両方とも<strong>設定の在庫数＝表示に揃える</strong>で累計調整できます。</p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
