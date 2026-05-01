@@ -198,7 +198,7 @@
 <body>
   <header class="app-header">
     <h1 id="facilityTitle">在庫管理</h1>
-    <div class="sub" id="facilitySub">介護施設 消耗品</div>
+    <div class="sub honbu-ui-ver" id="facilitySub" title="index.html の版（更新のたびに定義を上げる）"></div>
   </header>
   <nav class="tabs" role="tablist">
     <button type="button" class="tab-btn active" data-tab="honbu" role="tab">本部</button>
@@ -208,7 +208,6 @@
   <main class="wrap">
     <section class="panel active" data-panel="honbu" id="panel-honbu">
       <div class="card">
-        <p class="honbu-ui-ver" id="honbu-ui-version" title="index.html 反映確認用。更新のたびに定義を上げる（本文は JS で表示）"></p>
         <div class="row-flex" style="justify-content: space-between; align-items: flex-end;">
           <div>
             <label for="global-sender">操作者名（GAS送信用）</label><br />
@@ -368,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.1';
+  var ZAIKO_HTML_VERSION = '1.2.2';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -2062,38 +2061,6 @@
     });
   }
 
-  /**
-   * 設定テーブル1行分：現在在庫・未確入力・差異をリセット
-   * scope: soko-p（倉庫・パット） / soko-d（倉庫・日用品） / nishi-p（西・パット）
-   */
-  function resetInventoryRow(scope, p) {
-    ensureProductRows();
-    if (scope === 'soko-p') {
-      if (!db.supply[p]) db.supply[p] = defSupplyRow();
-      var s = db.supply[p];
-      s.sokoCurrent = 0;
-      s.sokoReplenish = 0;
-      s.discrepancy = defDiscrepancyResolved();
-    } else if (scope === 'soko-d') {
-      if (!db.daily[p]) db.daily[p] = defDailyRow();
-      var d = db.daily[p];
-      d.sokoCurrent = 0;
-      d.deliveryCount = 0;
-      d.deliveryCommitted = false;
-      d.minamiIssued = 0;
-      d.sokoReplenish = 0;
-      d.discrepancy = defDiscrepancyResolved();
-    } else if (scope === 'nishi-p') {
-      if (!db.supply[p]) db.supply[p] = defSupplyRow();
-      var s2 = db.supply[p];
-      s2.nishiCurrent = 0;
-      s2.nishiReplenish = 0;
-      s2.discrepancy = defDiscrepancyResolved();
-    }
-    db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
-  }
-
   /** パット類：未確の補充入力と差異のみクリア */
   function applyPatBaselineCore() {
     ensureProductRows();
@@ -2333,35 +2300,9 @@
       }
     });
   }
-  function onSettingsRowResetClick(e) {
-    var btn = e.target && e.target.closest && e.target.closest('button.s-row-reset');
-    if (!btn) return;
-    var scope = btn.getAttribute('data-scope');
-    var p = btn.getAttribute('data-p');
-    if (!scope || p == null || p === '') return;
-    if (!confirm('在庫を0にしますか？')) return;
-    resetInventoryRow(scope, p);
-    saveDb();
-    postGAS({ includeSettings: true, skipSuccessAlert: true })
-      .then(function () {
-        renderHonbu();
-        renderNishi();
-        renderSettingsFull();
-        renderStamp();
-        updateFacilityHeader();
-        updateMessageAreas();
-        var info = document.getElementById('honbu-info');
-        if (info) info.textContent = 'リセットをGASへ反映: ' + nowStamp();
-      })
-      .catch(function (err) {
-        var el = document.getElementById('honbu-err');
-        if (el) { el.textContent = 'リセット送信エラー: ' + String(err); el.hidden = false; }
-      });
-  }
   (function bindSettingsInputOnce() {
     var r = document.getElementById('settings-root');
     r.addEventListener('input', onSettingsInput);
-    r.addEventListener('click', onSettingsRowResetClick);
   })();
 
   function renderSettingsFull() {
@@ -2379,11 +2320,11 @@
       '<p class="meta-line">各表の<strong>現在の在庫数</strong>はそのまま品目データの倉庫／西実数として保存されます。<strong>未確の入力</strong>や<strong>差異記録のみ</strong>まとめてリセットするときは下のボタンを押します（週次西消費や既に入力した実在庫の数値は書き換えません）。</p>' +
       '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn btn-lg" id="s-align-stock-display">入力クリア・差異リセット（GAS送信）</button> <span id="s-align-stock-msg" class="ok-msg"></span></p>';
     html += '<h2>西スタッフ管理</h2><p class="meta-line">発注時の操作者候補（GASに同期）</p><ul id="l-ws" class="slist"></ul><p><input id="new-ws" placeholder="スタッフ名" /> <button type="button" class="btn" id="add-ws">追加</button></p>';
-    html += '<h2>パット品目管理 <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2><ul id="l-p" class="slist"></ul>';
-    html += '<h2>日用品品目管理 <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2><ul id="l-d" class="slist"></ul>';
-    html += '<h2>1. 倉庫（パット類在庫設定）</h2><div class="table-wrap" id="tb-soko-p"></div>';
-    html += '<h2>2. 倉庫（日用品在庫設定）</h2><div class="table-wrap" id="tb-soko-d"></div>';
-    html += '<h2>3. 西（パット類在庫設定）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
+    html += '<h2>パット類（品目・倉庫在庫） <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2>';
+    html += '<div class="table-wrap" id="tb-merge-p"></div>';
+    html += '<h2>日用品（品目・倉庫在庫） <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2>';
+    html += '<div class="table-wrap" id="tb-merge-d"></div>';
+    html += '<h2>西（パット類・西在庫）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
     html += '<p class="meta-line" style="margin-top:0.4rem">※本部の各確認ボタンで倉庫の現在在庫が増減します。設定の<strong>現在の在庫数</strong>で、倉庫側・西（パット）側それぞれの実数を直に編集できます（西タブの西在庫表示は、その実数から週次消費を差し引いた値です）。<strong>要補充・緊急</strong>はそれぞれの閾値と現在在庫で判定します。</p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
@@ -2396,36 +2337,72 @@
       '<p class="meta-line"><label><input type="checkbox" id="s-post-alert-debug" ' + (isPostAlertDebugOn() ? 'checked' : '') + ' /> POST結果をアラート表示（Safari等でコンソールが開けない端末向け）</label></p>';
     root.innerHTML = html;
     (function () {
-      function fillSt(tableId, arr, nskey, scope) {
-        var d = document.getElementById(tableId);
-        var t = '<table><thead><tr><th>品目</th><th>現在の在庫数</th><th>要補充</th><th>緊急</th><th></th></tr></thead><tbody>';
+      function fillMergedPatWarehouse() {
+        var wrap = document.getElementById('tb-merge-p');
+        if (!wrap) return;
+        var arr = db.settings.supplyProducts || [];
+        ensureProductRows();
+        var thead = '<table><thead><tr><th>品目</th><th>並べ替え・削除</th><th>現在の倉庫在庫</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
+        if (!arr.length) {
+          wrap.innerHTML = thead + '<tr><td colspan="5" class="meta-line" style="text-align:left">品目がありません。上の入力で追加してください。</td></tr></tbody></table>';
+          return;
+        }
+        var rows = arr.map(function (p, i) {
+          var o = (db.settings.sokoStock && db.settings.sokoStock[p]) || defStockRow();
+          var cur = (db.supply[p] && db.supply[p].sokoCurrent != null) ? Number(db.supply[p].sokoCurrent) || 0 : 0;
+          return '<tr><td>' + escapeText(p) + '</td><td style="white-space:nowrap">' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="p" data-ix="' + i + '" data-d="-1" title="上へ">↑</button> ' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="p" data-ix="' + i + '" data-d="1" title="下へ">↓</button> ' +
+            '<button type="button" class="btn btn-ghost s-rm" data-w="p" data-ix="' + i + '">削除</button></td>' +
+            '<td><input class="s-cur" data-scope="soko-p" data-p="' + escapeAttr(p) + '" type="number" step="any" value="' + cur + '"/></td>' +
+            '<td><input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
+            '<td><input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
+        }).join('');
+        wrap.innerHTML = thead + rows + '</tbody></table>';
+      }
+      function fillMergedDailyWarehouse() {
+        var wrap = document.getElementById('tb-merge-d');
+        if (!wrap) return;
+        var arr = db.settings.dailyProducts || [];
+        ensureProductRows();
+        var thead = '<table><thead><tr><th>品目</th><th>並べ替え・削除</th><th>現在の倉庫在庫</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
+        if (!arr.length) {
+          wrap.innerHTML = thead + '<tr><td colspan="5" class="meta-line" style="text-align:left">品目がありません。上の入力で追加してください。</td></tr></tbody></table>';
+          return;
+        }
+        var rows = arr.map(function (p, i) {
+          var o = (db.settings.sokoStock && db.settings.sokoStock[p]) || defStockRow();
+          var cur = (db.daily[p] && db.daily[p].sokoCurrent != null) ? Number(db.daily[p].sokoCurrent) || 0 : 0;
+          return '<tr><td>' + escapeText(p) + '</td><td style="white-space:nowrap">' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="d" data-ix="' + i + '" data-d="-1" title="上へ">↑</button> ' +
+            '<button type="button" class="btn btn-ghost s-mv" data-w="d" data-ix="' + i + '" data-d="1" title="下へ">↓</button> ' +
+            '<button type="button" class="btn btn-ghost s-rm" data-w="d" data-ix="' + i + '">削除</button></td>' +
+            '<td><input class="s-cur" data-scope="soko-d" data-p="' + escapeAttr(p) + '" type="number" step="any" value="' + cur + '"/></td>' +
+            '<td><input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
+            '<td><input class="s-n" data-k="sokoStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
+        }).join('');
+        wrap.innerHTML = thead + rows + '</tbody></table>';
+      }
+      function fillWestNishiPatStock() {
+        var d = document.getElementById('tb-nishi-p');
+        if (!d) return;
+        var arr = db.settings.supplyProducts || [];
+        ensureProductRows();
+        var t = '<table><thead><tr><th>品目</th><th>現在の西在庫（実数）</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
+        if (!arr.length) {
+          d.innerHTML = t + '<tr><td colspan="4" class="meta-line" style="text-align:left">パット品目が未登録です。</td></tr></tbody></table>';
+          return;
+        }
         arr.forEach(function (p) {
-          var o = (db.settings[nskey] && db.settings[nskey][p]) || defStockRow();
-          var cur = 0;
-          ensureProductRows();
-          if (scope === 'soko-p') cur = (db.supply[p] && db.supply[p].sokoCurrent != null) ? Number(db.supply[p].sokoCurrent) || 0 : 0;
-          else if (scope === 'soko-d') cur = (db.daily[p] && db.daily[p].sokoCurrent != null) ? Number(db.daily[p].sokoCurrent) || 0 : 0;
-          else if (scope === 'nishi-p') cur = (db.supply[p] && db.supply[p].nishiCurrent != null) ? Number(db.supply[p].nishiCurrent) || 0 : 0;
+          var o = (db.settings.nishiStock && db.settings.nishiStock[p]) || defStockRow();
+          var cur = (db.supply[p] && db.supply[p].nishiCurrent != null) ? Number(db.supply[p].nishiCurrent) || 0 : 0;
           t += '<tr><td>' + escapeText(p) + '</td>' +
-            '<td><input class="s-cur" data-scope="' + escapeAttr(scope) + '" data-p="' + escapeAttr(p) +
-            '" type="number" step="any" value="' + cur + '"/></td>' +
-            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
-            '<td><input class="s-n" data-k="' + nskey + '" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td>' +
-            '<td><button type="button" class="btn btn-ghost s-row-reset" data-scope="' + escapeAttr(scope) + '" data-p="' + escapeAttr(p) + '">リセット</button></td></tr>';
+            '<td><input class="s-cur" data-scope="nishi-p" data-p="' + escapeAttr(p) + '" type="number" step="any" value="' + cur + '"/></td>' +
+            '<td><input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
+            '<td><input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
         });
         t += '</tbody></table>';
         d.innerHTML = t;
-      }
-      function fillList(id, which) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var arr = which === 'p' ? db.settings.supplyProducts : db.settings.dailyProducts;
-        el.innerHTML = arr.map(function (p, i) {
-          return '<li><span class="nm">' + escapeText(p) + '</span>' +
-            '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="-1" title="上へ">↑</button>' +
-            '<button type="button" class="btn btn-ghost s-mv" data-w="' + which + '" data-ix="' + i + '" data-d="1" title="下へ">↓</button>' +
-            '<button type="button" class="btn btn-ghost s-rm" data-w="' + which + '" data-ix="' + i + '">削除</button></li>';
-        }).join('');
       }
       function fillWestStaff() {
         var el = document.getElementById('l-ws');
@@ -2438,12 +2415,10 @@
             '<button type="button" class="btn btn-ghost s-rm" data-w="ws" data-ix="' + i + '">削除</button></li>';
         }).join('');
       }
-      fillList('l-p', 'p');
-      fillList('l-d', 'd');
+      fillMergedPatWarehouse();
+      fillMergedDailyWarehouse();
+      fillWestNishiPatStock();
       fillWestStaff();
-      fillSt('tb-soko-p', db.settings.supplyProducts, 'sokoStock', 'soko-p');
-      fillSt('tb-soko-d', db.settings.dailyProducts, 'sokoStock', 'soko-d');
-      fillSt('tb-nishi-p', db.settings.supplyProducts, 'nishiStock', 'nishi-p');
     })();
     var fac = document.getElementById('s-fac2');
     var roleRadios = root.querySelectorAll('input[name="s-role"]');
@@ -2559,7 +2534,8 @@
         try { localStorage.setItem(LS_POST_ALERT_DEBUG, postAlertDbg.checked ? '1' : '0'); } catch (e) {}
       };
     }
-    var lp = document.getElementById('l-p');
+    var tbMergeP = document.getElementById('tb-merge-p');
+    var tbMergeD = document.getElementById('tb-merge-d');
     function listRowClick(e) {
         var t = e.target;
         if (!t || !t.classList) return;
@@ -2616,10 +2592,9 @@
           scheduleSettingsSync('remove-product');
         }
     }
-    var ld = document.getElementById('l-d');
     var lws = document.getElementById('l-ws');
-    if (lp) lp.onclick = listRowClick;
-    if (ld) ld.onclick = listRowClick;
+    if (tbMergeP) tbMergeP.onclick = listRowClick;
+    if (tbMergeD) tbMergeD.onclick = listRowClick;
     if (lws) lws.onclick = listRowClick;
   }
 
@@ -2656,8 +2631,8 @@
 
   // Init
   (function init() {
-    (function setHonbuVersionLabel() {
-      var el = document.getElementById('honbu-ui-version');
+    (function setAppVersionLabel() {
+      var el = document.getElementById('facilitySub');
       if (el) el.textContent = 'UI v' + ZAIKO_HTML_VERSION;
     })();
     ensureProductRows();
