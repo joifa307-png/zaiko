@@ -232,7 +232,7 @@
         <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
-          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。補充足しは入力欄確認後に在庫に反映されます。
+          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。補充足しは入力欄確認後に在庫に反映されます。<strong>南消費</strong>は同一端末の介護記録（南）の累計表示で、累計が増えた分だけ倉庫在庫数が自動的に減ります（介護記録データのある端末のみ）。
         </p>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.2';
+  var ZAIKO_HTML_VERSION = '1.2.3';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -521,7 +521,8 @@
       nishiReplenish: 0,
       nishiCurrent: 0,
       sokoCurrent: 0,
-      minamiConsumedAuto: 0,
+      /** 介護記録(南)の累計のうち、既に sokoCurrent に減算反映した数量（null は未ベースライン） */
+      minamiConsumedAppliedTotal: null,
       sokoReplenish: 0,
       discrepancy: { expected: 0, actual: 0, diff: 0, date: '', resolved: true }
     };
@@ -772,6 +773,48 @@
         if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
       });
     }
+    applyPatMinamiDeltaToSokoCurrent();
+  }
+
+  /** 介護記録 localStorage(kaigo_minami) にデータがあるか（この端末でのみ南消費を在庫に反映する） */
+  function minamiKaigoLocalExists() {
+    return getKaigoSupplies(LS_KAIGO_MINAMI).length > 0;
+  }
+
+  /**
+   * パット類・南消費（介護記録の累計）の増加分を倉庫現在在庫から即減算する。
+   * 初回のみ累計をベースラインとして記録し在庫は動かさない（過去分の一括減算を防ぐ）。
+   * 南データが無い端末ではスキップし、GAS 同期された sokoCurrent をそのまま使う。
+   */
+  function applyPatMinamiDeltaToSokoCurrent() {
+    if (!minamiKaigoLocalExists()) return false;
+    var products = db.settings.supplyProducts || [];
+    if (!products.length) return false;
+    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, products);
+    var changedStock = false;
+    var changedBaseline = false;
+    products.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var s = db.supply[p];
+      var cum = allM[p] != null ? Number(allM[p]) || 0 : 0;
+      var raw = s.minamiConsumedAppliedTotal;
+      if (raw == null || raw === '') {
+        s.minamiConsumedAppliedTotal = cum;
+        changedBaseline = true;
+        return;
+      }
+      var applied = Number(raw) || 0;
+      var delta = cum - applied;
+      if (delta <= 0) return;
+      s.sokoCurrent = (Number(s.sokoCurrent) || 0) - delta;
+      s.minamiConsumedAppliedTotal = cum;
+      changedStock = true;
+    });
+    if (changedStock || changedBaseline) {
+      try { saveDb(); } catch (e) {}
+      if (changedStock) scheduleOperationalSync('pat-minami-kaigo');
+    }
+    return changedStock;
   }
 
   function nishiKaigoLocalExists() {
