@@ -271,6 +271,12 @@
             <tbody id="honbu-daily-tbody"></tbody>
           </table>
         </div>
+        <p style="margin:1.1rem 0 0; text-align:center;">
+          <button type="button" class="btn btn-secondary" data-act="hon-minami-oroshi-reset" id="btn-hon-minami-oroshi-reset">南消費・卸リセット</button>
+        </p>
+        <p class="meta-line" style="text-align:center; margin:0.4rem 0 0; max-width:40rem; margin-left:auto; margin-right:auto; line-height:1.45">
+          パットの南消費列の数値をいまの累計を起点に0表示に戻し、日用品の南卸数(入力)をすべて0にします（倉庫在庫の数値は変えません）。
+        </p>
       </div>
     </section>
 
@@ -367,7 +373,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.3';
+  var ZAIKO_HTML_VERSION = '1.2.4';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -523,6 +529,8 @@
       sokoCurrent: 0,
       /** 介護記録(南)の累計のうち、既に sokoCurrent に減算反映した数量（null は未ベースライン） */
       minamiConsumedAppliedTotal: null,
+      /** 南消費列の表示オフセット。リセット時に当時の累計を入れ、表示は max(0, 累計−本値) */
+      minamiDisplayBaseline: null,
       sokoReplenish: 0,
       discrepancy: { expected: 0, actual: 0, diff: 0, date: '', resolved: true }
     };
@@ -1496,7 +1504,9 @@
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
       var mAll = allM[p] != null ? allM[p] : 0;
-      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll });
+      var blM = s.minamiDisplayBaseline != null ? Number(s.minamiDisplayBaseline) || 0 : 0;
+      var mShown = Math.max(0, (Number(mAll) || 0) - blM);
+      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll, minamiShown: mShown });
       var stW = statusFromNishiWest(p, wN);
       var stSk = statusFromSokoStock(p);
       var tr = document.createElement('tr');
@@ -1520,7 +1530,7 @@
       tr.cells[3].appendChild(document.createTextNode(' '));
       tr.cells[3].appendChild(btnPatNishi);
       btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 ? '' : 'none';
-      tr.cells[4].textContent = String(mAll);
+      tr.cells[4].textContent = String(mShown);
       tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
       tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
       tr.cells[6].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
@@ -1703,6 +1713,35 @@
         renderNishi();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = '西補充を反映しGASに送信しました。';
+      });
+  }
+
+  /** 本部・パット南消費列の表示起点をリセットし、日用品の南卸(入力)を0にする（在庫は変更しない） */
+  function doHonbuMinamiOroshiColumnReset() {
+    var sen = getSender();
+    if (!sen) { alert('操作者名を入力してください。'); return; }
+    if (!confirm('パットの南消費の表示をゼロ起点にし、日用品の南卸数(入力)をすべて0にします。倉庫在庫は変わりません。よろしいですか？')) return;
+    ensureProductRows();
+    var products = db.settings.supplyProducts || [];
+    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, products);
+    products.forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var cum = allM[p] != null ? Number(allM[p]) || 0 : 0;
+      db.supply[p].minamiDisplayBaseline = cum;
+    });
+    (db.settings.dailyProducts || []).forEach(function (p) {
+      if (!db.daily[p]) db.daily[p] = defDailyRow();
+      db.daily[p].minamiIssued = 0;
+    });
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS()
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '南消費・卸（入力）をリセット: ' + nowStamp();
       });
   }
 
@@ -2179,6 +2218,7 @@
     if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-minami') { doHonbuDailyMinamiConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-minami-oroshi-reset') { doHonbuMinamiOroshiColumnReset(); }
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
