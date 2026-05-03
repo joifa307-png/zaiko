@@ -373,7 +373,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.4';
+  var ZAIKO_HTML_VERSION = '1.2.5';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -635,7 +635,8 @@
       message: { from: '', text: '', sentAt: '' },
       lastSynced: '',
       lastSyncedBy: '',
-      nishiConsumedResetAt: ''
+      nishiConsumedResetAt: '',
+      resetAt: ''
     };
   }
 
@@ -662,6 +663,8 @@
     o.lastSynced = raw.lastSynced != null ? String(raw.lastSynced) : '';
     o.lastSyncedBy = raw.lastSyncedBy != null ? String(raw.lastSyncedBy) : '';
     o.nishiConsumedResetAt = raw.nishiConsumedResetAt != null && String(raw.nishiConsumedResetAt).trim() !== '' ? String(raw.nishiConsumedResetAt).trim() : '';
+    o.resetAt = raw.resetAt != null ? String(raw.resetAt) : '';
+    if (raw.lastResetAt != null) o.lastResetAt = String(raw.lastResetAt);
     if (!o.settings.nishiConsumedResetAt || String(o.settings.nishiConsumedResetAt).trim() === '') {
       o.settings.nishiConsumedResetAt = o.nishiConsumedResetAt || '';
     }
@@ -1133,6 +1136,7 @@
       supply: supplyForSend,
       daily: dailyForSend,
       nishiConsumedResetAt: (db && db.nishiConsumedResetAt != null) ? String(db.nishiConsumedResetAt) : '',
+      resetAt: (db && db.resetAt != null) ? String(db.resetAt) : '',
       message: db.message && typeof db.message === 'object' && !Array.isArray(db.message)
         ? { from: String(db.message.from || ''), text: String(db.message.text || ''), sentAt: String(db.message.sentAt || '') }
         : { from: '', text: '', sentAt: '' }
@@ -1268,6 +1272,11 @@
     }
     if (d.lastSynced) db.lastSynced = String(d.lastSynced);
     if (d.lastSyncedBy) db.lastSyncedBy = String(d.lastSyncedBy);
+    if (d.resetAt) {
+      var ra = String(d.resetAt).trim();
+      db.resetAt = ra;
+      db.lastResetAt = ra;
+    }
     applyNishiConsumedResetFromMergedSnapshot(d);
     ensureProductRows();
     updateFacilityHeader();
@@ -1284,10 +1293,12 @@
     if (!o || typeof o !== 'object') return o;
     var d = unwrapGasData(o);
     if (d.settings || d.supply || d.daily || d.message ||
-      Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt')) return d;
+      Object.prototype.hasOwnProperty.call(d, 'nishiConsumedResetAt') ||
+      Object.prototype.hasOwnProperty.call(d, 'resetAt')) return d;
     if (o.data && typeof o.data === 'object' && !Array.isArray(o.data)) {
       if (gasResponseOk(o.ok)) return unwrapGasData(o.data);
-      if (o.data.settings || o.data.supply || o.data.daily || o.data.message) return o.data;
+      if (o.data.settings || o.data.supply || o.data.daily || o.data.message ||
+        Object.prototype.hasOwnProperty.call(o.data, 'resetAt')) return o.data;
     }
     if (o.body && typeof o.body === 'object' && (o.body.settings || o.body.supply || o.body.daily)) return unwrapGasData(o.body);
     if (o.payload && typeof o.payload === 'object') return unwrapGasData(o.payload);
@@ -2103,6 +2114,7 @@
 
   function resetNishiWeekConsumed() {
     if (!confirm('今週の消費数をリセットします。よろしいですか？')) return;
+    db.resetAt = new Date().toISOString();
     ensureProductRows();
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
