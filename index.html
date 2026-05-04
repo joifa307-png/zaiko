@@ -210,7 +210,7 @@
       <div class="card">
         <div class="row-flex" style="justify-content: space-between; align-items: flex-end;">
           <div>
-            <label for="global-sender">操作者名（GAS送信用）</label><br />
+            <label for="global-sender">本部担当（操作者・GAS送信用）</label><br />
             <input type="text" id="global-sender" placeholder="必ず入力" />
           </div>
           <button type="button" class="btn" id="btn-sync-get" data-sync-restore="データ送受信">データ送受信</button>
@@ -284,15 +284,9 @@
       <div class="card">
         <div class="row-flex" style="flex-wrap: wrap;">
           <div>
-            <div>
-              <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
-            </div>
+            <button type="button" class="btn" id="btn-sync-get-nishi" data-sync-restore="データ送受信">データ送受信</button>
             <p class="meta-line" id="nishi-import-info" style="margin: 0.35rem 0 0;"></p>
             <p class="meta-line" id="nishi-stamp">最終更新: なし</p>
-          </div>
-          <div>
-            <label for="global-sender-nishi">操作者名（GAS送信用・西のみ表示時）</label><br />
-            <input type="text" id="global-sender-nishi" placeholder="必ず入力" style="min-width:12rem" />
           </div>
         </div>
         <div id="nishi-disc-wrap" class="honbu-disc-wrap" hidden style="justify-content:center; max-width:36rem; margin-left:auto; margin-right:auto;">
@@ -373,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.5';
+  var ZAIKO_HTML_VERSION = '1.2.8';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -712,10 +706,10 @@
     localStorage.setItem(LS_KEY, JSON.stringify(db));
   }
 
-  function getSender() {
+  /** 本部タブ用。GAS の sender に使うのはこの値のみ（西は `getSelectedNishiOperator`）。 */
+  function getHonbuSender() {
     var e = document.getElementById('global-sender');
-    var e2 = document.getElementById('global-sender-nishi');
-    return (e && e.value || e2 && e2.value || '').trim();
+    return (e && e.value || '').trim();
   }
 
   function ensureProductRows() {
@@ -947,7 +941,7 @@
     fill('honbu-disc-wrap', 'honbu-disc-lines');
     fill('nishi-disc-wrap', 'nishi-disc-lines');
   }
-  function resolveAllOpenDiscrepancies() {
+  function resolveAllOpenDiscrepancies(which) {
     ensureProductRows();
     var any = false;
     (db.settings.supplyProducts || []).forEach(function (p) {
@@ -970,10 +964,15 @@
       updateDiscrepancyBanners();
       return;
     }
+    var sen = (which === 'nishi') ? getSelectedNishiOperator() : getHonbuSender();
+    if (!sen) {
+      alert((which === 'nishi') ? '西スタッフをプルダウンで選択してください。' : '本部の操作者名を入力してください。');
+      return;
+    }
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = sen;
     saveDb();
-    return postGAS({ skipSuccessAlert: true })
+    return postGAS({ skipSuccessAlert: true, sender: sen })
       .then(function () {
         updateDiscrepancyBanners();
         renderHonbu();
@@ -1063,12 +1062,16 @@
     var inp = fromLabel === '西' ? document.getElementById('nishi-msg-inp') : document.getElementById('honbu-msg-inp');
     var text = (inp && inp.value || '').trim();
     if (!text) { alert('メッセージを入力してください。'); return; }
-    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
+    var sen = fromLabel === '西' ? getSelectedNishiOperator() : getHonbuSender();
+    if (!sen) {
+      alert(fromLabel === '西' ? '西スタッフをプルダウンで選択してください。' : '本部の操作者名を入力してください。');
+      return;
+    }
     ensureProductRows();
     db.message = { from: fromLabel, text: text, sentAt: nowStamp() };
     if (inp) inp.value = '';
     saveDb();
-    return postGAS({ skipSuccessAlert: true })
+    return postGAS({ skipSuccessAlert: true, sender: sen })
       .then(function () {
         updateMessageAreas();
         var info = document.getElementById('honbu-info');
@@ -1129,9 +1132,10 @@
       dailyForSend[p] = rowCopy;
     });
 
+    var gasSender = (opts && opts.sender != null && String(opts.sender).trim() !== '') ? String(opts.sender).trim() : '未記入';
     var payload = {
       token: token,
-      sender: getSender() || '未記入',
+      sender: gasSender,
       sentAt: nowStamp(),
       supply: supplyForSend,
       daily: dailyForSend,
@@ -1374,7 +1378,7 @@
     settingsSyncTimer = setTimeout(function () {
       settingsSyncTimer = null;
       gasLog('設定同期POST', reason || 'settings');
-      postGAS({ includeSettings: true })
+      postGAS({ includeSettings: true, sender: getHonbuSender() || '未記入' })
         .then(function () {
           var info = document.getElementById('honbu-info');
           if (info) info.textContent = '設定をGASへ同期: ' + nowStamp();
@@ -1392,7 +1396,7 @@
     operationalSyncTimer = setTimeout(function () {
       operationalSyncTimer = null;
       gasLog('運用入力同期POST', reason || 'ops-input');
-      postGAS({ skipSuccessAlert: true })
+      postGAS({ skipSuccessAlert: true, sender: getHonbuSender() || '未記入' })
         .then(function () {
           var info = document.getElementById('honbu-info');
           if (info) info.textContent = '入力をGASへ同期: ' + nowStamp();
@@ -1700,8 +1704,8 @@
   }
 
   function doHonbuPatNishiConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     ensureProductRows();
     if (!db.supply[p]) db.supply[p] = defSupplyRow();
     var s = db.supply[p];
@@ -1718,7 +1722,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
+    return postGAS({ sender: sen })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -1729,8 +1733,8 @@
 
   /** 本部・パット南消費列の表示起点をリセットし、日用品の南卸(入力)を0にする（在庫は変更しない） */
   function doHonbuMinamiOroshiColumnReset() {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     if (!confirm('パットの南消費の表示をゼロ起点にし、日用品の南卸数(入力)をすべて0にします。倉庫在庫は変わりません。よろしいですか？')) return;
     ensureProductRows();
     var products = db.settings.supplyProducts || [];
@@ -1747,7 +1751,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
+    return postGAS({ sender: sen })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -1757,8 +1761,8 @@
   }
 
   function doHonbuPatSokoConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     ensureProductRows();
     var s = db.supply[p];
     var b = s.sokoReplenish > 0 ? s.sokoReplenish : 0;
@@ -1768,14 +1772,14 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
+    return postGAS({ sender: sen })
       .then(function () { renderHonbu(); renderNishi(); document.getElementById('honbu-info').textContent = '倉庫補充受取を反映（パット）'; });
   }
 
   /** 日用品・納品確認：倉庫在庫だけ減算。deliveryCount は西の「配送中／受取」用に維持（ゼロにするとUIが消えるため） */
   function doHonbuDailyDeliveryConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     ensureProductRows();
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
@@ -1792,7 +1796,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS()
+    return postGAS({ sender: sen })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -1802,8 +1806,8 @@
   }
 
   function doHonbuDailyMinamiConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
     var mi = Number(d0.minamiIssued) || 0;
@@ -1813,7 +1817,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS().then(function () {
+    return postGAS({ sender: sen }).then(function () {
       renderHonbu();
       renderNishi();
       document.getElementById('honbu-info').textContent = '南卸を反映しGASに送信しました';
@@ -1821,8 +1825,8 @@
   }
 
   function doHonbuDailySokoConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名を入力してください。'); return; }
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
     if (!db.daily[p]) db.daily[p] = defDailyRow();
     var d0 = db.daily[p];
     var b = Number(d0.sokoReplenish) || 0;
@@ -1832,7 +1836,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS().then(function () {
+    return postGAS({ sender: sen }).then(function () {
       renderHonbu();
       renderNishi();
       document.getElementById('honbu-info').textContent = '倉庫補充受取を反映（日用品）';
@@ -1944,8 +1948,8 @@
 
   /** 予定どおりすべて受領するときの省略操作（入力欄なし。本部で未確の西補充入力が同期されているとき） */
   function doNishiPatConfirm(p) {
-    var sen = getSender();
-    if (!sen) { alert('操作者名（本部上部）を入力してください。'); return; }
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     if (!db.supply[p]) return;
     var s = db.supply[p];
     var q = Number(s.nishiReplenish) || 0;
@@ -1954,13 +1958,14 @@
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + q;
     s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = sen;
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）'; });
+    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）'; });
   }
 
   function doNishiPatReceiveConfirm(p) {
-    if (!getSender()) { alert('操作者名（本部上部）を入力してください。'); return; }
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     if (!db.supply[p]) return;
     var s = db.supply[p];
     var expected = Number(s.nishiReplenish) || 0;
@@ -1977,20 +1982,20 @@
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + actual;
     s.nishiReplenish = 0;
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました'; });
+    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました'; });
   }
 
   function doNishiPatOrder(p) {
-    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
-    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     ensureProductRows();
     if (!db.supply[p]) db.supply[p] = defSupplyRow();
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS().then(function () {
+    return postGAS({ sender: op }).then(function () {
       renderNishi();
       renderHonbu();
       document.getElementById('honbu-info').textContent = '発注しました';
@@ -1998,10 +2003,9 @@
   }
 
   function doNishiOrder(p, qty) {
-    if (!getSender()) { alert('操作者名（GAS送信用）を上部または西タブ内に入力してください。'); return; }
-    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
-    if (!db.daily[p]) db.daily[p] = defDailyRow();
     var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
     var n = parseInt(qty, 10) || 0;
     db.daily[p].nishiOrder = n;
     if (n > 0) {
@@ -2018,11 +2022,12 @@
       console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate, nishiOrderBy: db.daily[p].nishiOrderBy });
     }
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
+    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
   }
 
   function doNishiDailyReset(p) {
-    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     if (db.daily[p]) {
       db.daily[p].nishiOrder = 0;
       db.daily[p].nishiOrderDate = '';
@@ -2037,7 +2042,7 @@
     saveDb();
     renderNishi();
     renderHonbu();
-    return postGAS()
+    return postGAS({ sender: op })
       .then(function () { renderNishi(); renderHonbu(); })
       .catch(function (e) {
         renderNishi();
@@ -2047,7 +2052,8 @@
   }
 
   function doNishiDailyReceiveConfirm(p) {
-    if (!getSender()) { alert('操作者名を上部に入力'); return; }
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     if (!db.daily[p]) return;
     var d0 = db.daily[p];
     var expected = Number(d0.deliveryCount) || 0;
@@ -2068,16 +2074,15 @@
     d0.nishiOrderAt = '';
     d0.nishiOrderBy = '';
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました'; });
+    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました'; });
   }
 
   function doNishiOrderAll() {
-    if (!getSender()) { alert('操作者名（GAS送信用）を入力してください。'); return; }
-    if (!getSelectedNishiOperator()) { alert('西スタッフ（操作者）をプルダウンで選択してください。'); return; }
-    ensureProductRows();
     var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    ensureProductRows();
     var changed = [];
     var today = ymd(new Date());
     db.settings.dailyProducts.forEach(function (p) {
@@ -2107,12 +2112,14 @@
     var msg = '一括発注の内容\n' + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n');
     alert(msg);
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS().then(function () { renderNishi(); renderHonbu(); });
+    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); });
   }
 
   function resetNishiWeekConsumed() {
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
     if (!confirm('今週の消費数をリセットします。よろしいですか？')) return;
     db.resetAt = new Date().toISOString();
     ensureProductRows();
@@ -2125,9 +2132,9 @@
     if (!db.supply || typeof db.supply !== 'object') db.supply = {};
     db.supply[ZAIKO_SUPPLY_META_WEEK_RESET] = { at: db.nishiConsumedResetAt };
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ includeNishiConsumedSync: true, skipApplySnapshotFromPost: true })
+    return postGAS({ includeNishiConsumedSync: true, skipApplySnapshotFromPost: true, sender: op })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -2193,15 +2200,20 @@
    * 設定の「現在の在庫数」表をDBに取り込み、未確入力・差異をリセットしてGAS送信
    */
   function alignDisplayStockToSettings() {
+    var sen = getHonbuSender();
+    if (!sen) {
+      alert('本部の操作者名を入力してください。');
+      return Promise.resolve(false);
+    }
     if (!confirm('設定タブの「現在の在庫数」と閾値をDBに反映し、未確の補充・納品・南卸入力と差異記録をリセットします。\n週次西消費（nishiConsumedSync）や nishiCurrent／sokoCurrent の実数はこの操作では変えません（週次をゼロにする場合は西タブの「週次消費数リセット」）。\nGAS に送信しますか？')) return Promise.resolve(false);
     flushSettingsStockInputsToDb();
     resetAllDiscrepancyRecords();
     applyPatBaselineCore();
     applyDailySokoBaselineCore();
     db.lastSynced = nowStamp();
-    db.lastSyncedBy = getSender() || '未記入';
+    db.lastSyncedBy = sen;
     saveDb();
-    return postGAS({ includeSettings: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true })
+    return postGAS({ includeSettings: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true, sender: sen })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -2234,7 +2246,7 @@
   });
   document.getElementById('panel-nishi').addEventListener('change', function (e) {
     if (e.target && e.target.tagName === 'SELECT' && e.target.getAttribute('data-p')) {
-      if (!getSender()) { e.target.value = 0; alert('操作者名（本部上部）を入力してから発注数を選んでください'); return; }
+      if (!getSelectedNishiOperator()) { e.target.value = 0; alert('西スタッフを選択してから発注数を選んでください'); return; }
     }
   });
   document.getElementById('n-order-all').addEventListener('click', function () {
@@ -2603,7 +2615,7 @@
       settingsSyncBtn.onclick = function () {
         flushSettingsStockInputsToDb();
         saveDb();
-        postGAS({ includeSettings: true })
+        postGAS({ includeSettings: true, sender: getHonbuSender() || '未記入' })
           .then(function () {
             renderHonbu();
             renderNishi();
@@ -2732,12 +2744,9 @@
     })();
     ensureProductRows();
     var gSend = document.getElementById('global-sender');
-    var gSendN = document.getElementById('global-sender-nishi');
     var sva = (localStorage.getItem('zaiko_global_sender') || '');
     if (gSend && !gSend.value) gSend.value = sva;
-    if (gSendN && !gSendN.value) gSendN.value = sva;
-    if (gSend) gSend.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSend.value); if (gSendN) gSendN.value = gSend.value; } catch (e) {} });
-    if (gSendN) gSendN.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSendN.value); if (gSend) gSend.value = gSendN.value; } catch (e) {} });
+    if (gSend) gSend.addEventListener('input', function () { try { localStorage.setItem('zaiko_global_sender', gSend.value); } catch (e) {} });
     var hbSend = document.getElementById('honbu-msg-send');
     var nsSend = document.getElementById('nishi-msg-send');
     var nishiSyncBtn = document.getElementById('btn-sync-get-nishi');
@@ -2746,11 +2755,11 @@
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
     if (nishiSyncBtn) nishiSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     if (honbuSyncBtn) honbuSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
-    function bindDiscConfirm(btn) {
-      if (btn) btn.addEventListener('click', function () { resolveAllOpenDiscrepancies(); });
+    function bindDiscConfirm(btn, which) {
+      if (btn) btn.addEventListener('click', function () { resolveAllOpenDiscrepancies(which); });
     }
-    bindDiscConfirm(document.getElementById('honbu-disc-confirm'));
-    bindDiscConfirm(document.getElementById('nishi-disc-confirm'));
+    bindDiscConfirm(document.getElementById('honbu-disc-confirm'), 'honbu');
+    bindDiscConfirm(document.getElementById('nishi-disc-confirm'), 'nishi');
     updateFacilityHeader();
     renderStamp();
     renderSettingsFull();
