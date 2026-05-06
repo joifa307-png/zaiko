@@ -1950,6 +1950,7 @@
   function doNishiPatConfirm(p) {
     var op = getSelectedNishiOperator();
     if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    var beforeShip = countNishiShippingItems();
     if (!db.supply[p]) return;
     var s = db.supply[p];
     var q = Number(s.nishiReplenish) || 0;
@@ -1960,12 +1961,16 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）'; });
+    return postGAS({ sender: op }).then(function () {
+      renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）';
+      maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
+    });
   }
 
   function doNishiPatReceiveConfirm(p) {
     var op = getSelectedNishiOperator();
     if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    var beforeShip = countNishiShippingItems();
     if (!db.supply[p]) return;
     var s = db.supply[p];
     var expected = Number(s.nishiReplenish) || 0;
@@ -1984,7 +1989,10 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました'; });
+    return postGAS({ sender: op }).then(function () {
+      renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました';
+      maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
+    });
   }
 
   function doNishiPatOrder(p) {
@@ -2054,6 +2062,7 @@
   function doNishiDailyReceiveConfirm(p) {
     var op = getSelectedNishiOperator();
     if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    var beforeShip = countNishiShippingItems();
     if (!db.daily[p]) return;
     var d0 = db.daily[p];
     var expected = Number(d0.deliveryCount) || 0;
@@ -2076,7 +2085,10 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました'; });
+    return postGAS({ sender: op }).then(function () {
+      renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました';
+      maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
+    });
   }
 
   function doNishiOrderAll() {
@@ -2117,10 +2129,33 @@
     return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); });
   }
 
-  function resetNishiWeekConsumed() {
-    var op = getSelectedNishiOperator();
-    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
-    if (!confirm('今週の消費数をリセットします。よろしいですか？')) return;
+  function countNishiShippingItems() {
+    ensureProductRows();
+    var c = 0;
+    (db.settings.supplyProducts || []).forEach(function (p) {
+      var s = db.supply && db.supply[p];
+      if (!s) return;
+      if ((Number(s.nishiReplenish) || 0) > 0) c++;
+    });
+    (db.settings.dailyProducts || []).forEach(function (p) {
+      var d0 = db.daily && db.daily[p];
+      if (!d0) return;
+      if ((Number(d0.deliveryCount) || 0) > 0) c++;
+    });
+    return c;
+  }
+
+  function maybeAskResetWeekConsumedAfterAllReceived(beforeShipCount, op) {
+    if (!(beforeShipCount > 0)) return;
+    if (countNishiShippingItems() > 0) return;
+    if (!op) return;
+    if (confirm('配送中の受取確認がすべて完了しました。\n週次消費数をリセットしますか？')) {
+      resetNishiWeekConsumedCore(op);
+    }
+  }
+
+  function resetNishiWeekConsumedCore(op) {
+    if (!op) return;
     db.resetAt = new Date().toISOString();
     ensureProductRows();
     db.settings.supplyProducts.forEach(function (p) {
@@ -2140,6 +2175,13 @@
         renderNishi();
         alert('リセットしました');
       });
+  }
+
+  function resetNishiWeekConsumed() {
+    var op = getSelectedNishiOperator();
+    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
+    if (!confirm('今週の消費数をリセットします。よろしいですか？')) return;
+    resetNishiWeekConsumedCore(op);
   }
 
   function defDiscrepancyResolved() {
