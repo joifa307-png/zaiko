@@ -232,7 +232,7 @@
         <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
-          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。補充足しは入力欄確認後に在庫に反映されます。<strong>南消費</strong>は同一端末の介護記録（南）の累計表示で、累計が増えた分だけ倉庫在庫数が自動的に減ります（介護記録データのある端末のみ）。
+          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。補充足しは入力欄確認後に在庫に反映されます。<strong>南消費</strong>は GAS で同期された累計（<code>minamiConsumedSync</code>）の表示です。
         </p>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.9';
+  var ZAIKO_HTML_VERSION = '1.2.10';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -518,6 +518,8 @@
     return {
       nishiConsumedAuto: 0,
       nishiConsumedSync: 0,
+      /** 南消費（累計、GAS同期値）。表示用。 */
+      minamiConsumedSync: 0,
       nishiReplenish: 0,
       nishiCurrent: 0,
       sokoCurrent: 0,
@@ -567,6 +569,7 @@
     var s = db.supply[p];
     if (!s || typeof s !== 'object') return;
     if (typeof s.nishiConsumedSync !== 'number') s.nishiConsumedSync = Number(s.nishiConsumedSync) || 0;
+    if (typeof s.minamiConsumedSync !== 'number') s.minamiConsumedSync = Number(s.minamiConsumedSync) || 0;
     if (typeof s.nishiReplenish !== 'number') s.nishiReplenish = Number(s.nishiReplenish) || 0;
     if (typeof s.sokoReplenish !== 'number') s.sokoReplenish = Number(s.sokoReplenish) || 0;
     if (s.nishiCurrent != null && s.nishiCurrent !== '' && !isNaN(Number(s.nishiCurrent))) s.nishiCurrent = Number(s.nishiCurrent);
@@ -1507,7 +1510,7 @@
     dtb.innerHTML = '';
     var allN = {};
     var wN = weekMonday;
-    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, db.settings.supplyProducts);
+    // 南消費は GAS 同期値（minamiConsumedSync）を表示する（端末ローカルの kaigo_minami は参照しない）
     db.settings.supplyProducts.forEach(function (p) {
       allN[p] = getNishiWeekConsumed(p, wN);
     });
@@ -1518,7 +1521,7 @@
       var wk = patStockNishi(p, wN);
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
-      var mAll = allM[p] != null ? allM[p] : 0;
+      var mAll = s.minamiConsumedSync != null ? (Number(s.minamiConsumedSync) || 0) : 0;
       var blM = s.minamiDisplayBaseline != null ? Number(s.minamiDisplayBaseline) || 0 : 0;
       var mShown = Math.max(0, (Number(mAll) || 0) - blM);
       gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll, minamiShown: mShown });
@@ -1738,10 +1741,9 @@
     if (!confirm('パットの南消費の表示をゼロ起点にし、日用品の南卸数(入力)をすべて0にします。倉庫在庫は変わりません。よろしいですか？')) return;
     ensureProductRows();
     var products = db.settings.supplyProducts || [];
-    var allM = sumSuppliesAllTime(LS_KAIGO_MINAMI, products);
     products.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
-      var cum = allM[p] != null ? Number(allM[p]) || 0 : 0;
+      var cum = db.supply[p].minamiConsumedSync != null ? (Number(db.supply[p].minamiConsumedSync) || 0) : 0;
       db.supply[p].minamiDisplayBaseline = cum;
     });
     (db.settings.dailyProducts || []).forEach(function (p) {
