@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.13';
+  var ZAIKO_HTML_VERSION = '1.2.14';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1102,7 +1102,9 @@
   }
 
   function payloadForGAS(opts) {
-    ensureProductRows();
+    // POST 用に在庫行を整える際、南消費デルタが再度 scheduleOperationalSync を積むと
+    // postGAS → applySnapshot → … と無限連鎖するため、ここでは同期 POST を抑止する。
+    ensureProductRows(true);
     try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
 
