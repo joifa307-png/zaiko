@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.11';
+  var ZAIKO_HTML_VERSION = '1.2.12';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1148,6 +1148,7 @@
         ? { from: String(db.message.from || ''), text: String(db.message.text || ''), sentAt: String(db.message.sentAt || '') }
         : { from: '', text: '', sentAt: '' }
     };
+    if (opts && opts.isBulkOrder) payload.isBulkOrder = true;
     syncNishiConsumedResetMirror();
     if (includeSettings) payload.settings = db.settings;
     var toilet = payload.daily && payload.daily['トイレットペーパー'];
@@ -2130,7 +2131,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); });
+    return postGAS({ sender: op, isBulkOrder: true }).then(function () { renderNishi(); renderHonbu(); });
   }
 
   function countNishiShippingItems() {
