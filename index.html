@@ -335,7 +335,7 @@
         <div style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-top:1rem;">
           <label for="nishi-operator-sel" class="meta-line">西スタッフ（操作者）</label>
           <select id="nishi-operator-sel" style="min-width:10rem;font-size:1.05rem;"></select>
-          <button type="button" class="btn btn-lg" id="n-order-all">一括発注を送信</button>
+          <button type="button" class="btn btn-lg" id="n-order-all">一括発注を送信（本部へ通知）</button>
           <button type="button" class="btn btn-lg btn-pink" id="n-reset-week-consumed">週次消費数リセット</button>
         </div>
       </div>
@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.10';
+  var ZAIKO_HTML_VERSION = '1.2.11';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1919,7 +1919,7 @@
       tr2.cells[3].innerHTML = '';
       var b1 = document.createElement('button');
       b1.className = 'btn';
-      b1.textContent = '発注';
+      b1.textContent = '確定';
       b1.setAttribute('data-act', 'n-ord');
       b1.setAttribute('data-p', p);
       tr2.cells[3].appendChild(b1);
@@ -2032,7 +2032,9 @@
       console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate, nishiOrderBy: db.daily[p].nishiOrderBy });
     }
     saveDb();
-    return postGAS({ sender: op }).then(function () { renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '発注しました'; });
+    renderNishi();
+    renderHonbu();
+    document.getElementById('honbu-info').textContent = '数量を確定しました（一括送信ボタンで発注してください）';
   }
 
   function doNishiDailyReset(p) {
