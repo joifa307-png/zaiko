@@ -367,7 +367,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.14';
+  var ZAIKO_HTML_VERSION = '1.2.15';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -715,7 +715,7 @@
     return (e && e.value || '').trim();
   }
 
-  function ensureProductRows(suppressSync) {
+  function ensureProductRows() {
     if (!db.settings || typeof db.settings !== 'object') db.settings = {};
     if (!Array.isArray(db.settings.supplyProducts)) db.settings.supplyProducts = [];
     if (!Array.isArray(db.settings.dailyProducts)) db.settings.dailyProducts = [];
@@ -781,7 +781,7 @@
         if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
       });
     }
-    applyPatMinamiDeltaToSokoCurrent(suppressSync);
+    applyPatMinamiDeltaToSokoCurrent();
   }
 
   /** 介護記録 localStorage(kaigo_minami) にデータがあるか（この端末でのみ南消費を在庫に反映する） */
@@ -794,7 +794,7 @@
    * 初回のみ累計をベースラインとして記録し在庫は動かさない（過去分の一括減算を防ぐ）。
    * 南データが無い端末ではスキップし、GAS 同期された sokoCurrent をそのまま使う。
    */
-  function applyPatMinamiDeltaToSokoCurrent(suppressSync) {
+  function applyPatMinamiDeltaToSokoCurrent() {
     if (!minamiKaigoLocalExists()) return false;
     var products = db.settings.supplyProducts || [];
     if (!products.length) return false;
@@ -820,7 +820,7 @@
     });
     if (changedStock || changedBaseline) {
       try { saveDb(); } catch (e) {}
-      if (changedStock && !suppressSync) scheduleOperationalSync('pat-minami-kaigo');
+      // scheduleOperationalSync は呼ばない（介護記録常時起動による無限ループ防止）
     }
     return changedStock;
   }
@@ -1102,9 +1102,8 @@
   }
 
   function payloadForGAS(opts) {
-    // POST 用に在庫行を整える際、南消費デルタが再度 scheduleOperationalSync を積むと
-    // postGAS → applySnapshot → … と無限連鎖するため、ここでは同期 POST を抑止する。
-    ensureProductRows(true);
+    // POST 直前に在庫行を整える（南消費デルタは saveDb のみ。GAS 送信は呼び出し元の postGAS のみ）
+    ensureProductRows();
     try { saveDb(); } catch (e) {}
     var includeSettings = !!(opts && opts.includeSettings);
 
@@ -1239,8 +1238,7 @@
     db.settings.nishiConsumedResetAt = v;
   }
 
-  function mergeFromServer(raw, opts) {
-    var suppressSync = !!(opts && opts.suppressSync);
+  function mergeFromServer(raw) {
     var d = unwrapGasData(raw);
     if (!d || typeof d !== 'object') return;
     if (d.settings && typeof d.settings === 'object' && Object.keys(d.settings).length > 0) {
@@ -1289,7 +1287,7 @@
       db.lastResetAt = ra;
     }
     applyNishiConsumedResetFromMergedSnapshot(d);
-    ensureProductRows(suppressSync);
+    ensureProductRows();
     updateFacilityHeader();
   }
 
@@ -1325,8 +1323,8 @@
     var body = resolveGASBody(o);
     if (!body || typeof body !== 'object') return;
     if (!body.settings && !body.supply && !body.daily) return;
-    mergeFromServer(body, { suppressSync: true });
-    ensureProductRows(true);
+    mergeFromServer(body);
+    ensureProductRows();
     saveDb();
   }
 
