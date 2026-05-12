@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.16';
+  var ZAIKO_HTML_VERSION = '1.2.17';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1564,8 +1564,8 @@
       + '.no-data { color: #999; font-size: 13px; }'
       + '@media print { body { margin: 10px; } }'
       + '</style></head><body>'
-      + '<h1>' + escapeText(facilityName) + '　発注（西）一覧</h1>'
-      + '<p class="meta">発注日：' + orderDateDisp + '　　印刷日時：' + escapeText(now) + '</p>';
+      + '<h1>' + escapeText('発注（西）一覧') + '</h1>'
+      + '<p class="meta">施設：' + escapeText(facilityName) + '　　発注日：' + orderDateDisp + '　　印刷日時：' + escapeText(now) + '</p>';
 
     html += '<h2>パット類</h2>';
     if (patRows) {
