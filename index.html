@@ -213,7 +213,10 @@
             <label for="global-sender">本部担当（操作者・GAS送信用）</label><br />
             <input type="text" id="global-sender" placeholder="必ず入力" />
           </div>
-          <button type="button" class="btn" id="btn-sync-get" data-sync-restore="データ送受信">データ送受信</button>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn" id="btn-sync-get" data-sync-restore="データ送受信">データ送受信</button>
+            <button type="button" class="btn btn-secondary" id="btn-honbu-print">🖨️ 印刷</button>
+          </div>
         </div>
         <p class="meta-line" id="honbu-stamp">最終更新: なし</p>
         <p class="meta-line" id="honbu-info"></p>
@@ -367,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.15';
+  var ZAIKO_HTML_VERSION = '1.2.16';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1500,6 +1503,98 @@
     if (nishiPanel) nishiPanel.style.display = role === 'honbu' ? 'none' : '';
     if (role === 'honbu') activateTab('honbu');
     else if (role === 'nishi') activateTab('nishi');
+  }
+
+  /** 本部タブ：発注（西）一覧を別ウィンドウで開き、ブラウザ印刷ダイアログを表示 */
+  function doHonbuPrint() {
+    ensureProductRows();
+    var products = db.settings.supplyProducts || [];
+    var dailyProds = db.settings.dailyProducts || [];
+    var facilityName = (db.settings.facilityName != null ? String(db.settings.facilityName) : '').trim() || '在庫管理';
+
+    var orderDate = '';
+    dailyProds.forEach(function (p) {
+      var d = db.daily[p];
+      if (d && d.nishiOrderDate && String(d.nishiOrderDate) > orderDate) {
+        orderDate = String(d.nishiOrderDate);
+      }
+    });
+
+    var patRows = '';
+    products.forEach(function (p) {
+      var s = db.supply[p];
+      if (!s) return;
+      var consumed = Number(s.nishiConsumedSync) || 0;
+      if (consumed <= 0) return;
+      var current = Number(s.nishiCurrent) || 0;
+      patRows += '<tr>'
+        + '<td>' + escapeText(p) + '</td>'
+        + '<td style="text-align:center;">' + current + '</td>'
+        + '<td style="text-align:center;">' + consumed + '</td>'
+        + '<td></td>'
+        + '</tr>';
+    });
+
+    var dailyRows = '';
+    dailyProds.forEach(function (p) {
+      var d = db.daily[p];
+      if (!d) return;
+      var qty = Number(d.nishiOrder) || 0;
+      if (qty < 1) return;
+      dailyRows += '<tr>'
+        + '<td>' + escapeText(p) + '</td>'
+        + '<td style="text-align:center;">' + qty + '</td>'
+        + '<td></td>'
+        + '</tr>';
+    });
+
+    var now = nowStamp();
+    var orderDateDisp = orderDate ? escapeText(orderDate) : '—';
+
+    var html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+      + '<title>' + escapeText('発注（西）一覧') + '</title>'
+      + '<style>'
+      + 'body { font-family: sans-serif; font-size: 14px; margin: 20px; color: #222; }'
+      + 'h1 { font-size: 18px; margin: 0 0 4px; }'
+      + '.meta { font-size: 13px; color: #555; margin: 0 0 16px; }'
+      + 'h2 { font-size: 15px; margin: 16px 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }'
+      + 'table { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 2px solid #666; }'
+      + 'th { background: #d0d0d0; border: 2px solid #666; padding: 8px 10px; text-align: center; font-size: 13px; font-weight: bold; }'
+      + 'td { border: 1px solid #888; padding: 8px 10px; font-size: 13px; }'
+      + '.no-data { color: #999; font-size: 13px; }'
+      + '@media print { body { margin: 10px; } }'
+      + '</style></head><body>'
+      + '<h1>' + escapeText(facilityName) + '　発注（西）一覧</h1>'
+      + '<p class="meta">発注日：' + orderDateDisp + '　　印刷日時：' + escapeText(now) + '</p>';
+
+    html += '<h2>パット類</h2>';
+    if (patRows) {
+      html += '<table>'
+        + '<thead><tr><th>品目</th><th>西在庫</th><th>西消費</th><th>西補充</th></tr></thead>'
+        + '<tbody>' + patRows + '</tbody>'
+        + '</table>';
+    } else {
+      html += '<p class="no-data">対象データなし</p>';
+    }
+
+    html += '<h2>日用品</h2>';
+    if (dailyRows) {
+      html += '<table>'
+        + '<thead><tr><th>品目</th><th>西発注数</th><th>納品予定数</th></tr></thead>'
+        + '<tbody>' + dailyRows + '</tbody>'
+        + '</table>';
+    } else {
+      html += '<p class="no-data">対象データなし</p>';
+    }
+
+    html += '</body></html>';
+
+    var w = window.open('', '_blank', 'width=700,height=900');
+    if (!w) { alert('ポップアップがブロックされています。許可してから再試行してください。'); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
   }
 
   function renderHonbu() {
@@ -2803,6 +2898,8 @@
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
     if (nishiSyncBtn) nishiSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     if (honbuSyncBtn) honbuSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
+    var honbuPrintBtn = document.getElementById('btn-honbu-print');
+    if (honbuPrintBtn) honbuPrintBtn.addEventListener('click', function () { doHonbuPrint(); });
     function bindDiscConfirm(btn, which) {
       if (btn) btn.addEventListener('click', function () { resolveAllOpenDiscrepancies(which); });
     }
