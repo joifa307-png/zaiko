@@ -235,7 +235,7 @@
         <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
-          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。補充足しは入力欄確認後に在庫に反映されます。<strong>南消費</strong>は GAS で同期された累計（<code>minamiConsumedSync</code>）の表示です。
+          <strong>西在庫</strong>は <strong>nishiCurrent − 西消費（週次）</strong>、<strong>倉庫在庫</strong>は <strong>sokoCurrent（直接管理）</strong>です。<strong>西補充（入力）→西補充確認</strong>で倉庫から出庫し、<strong>西タブの受取確認</strong>で西在庫に反映されます（日用品の納品と同様）。<strong>南消費</strong>は GAS で同期された累計（<code>minamiConsumedSync</code>）の表示です。
         </p>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.18';
+  var ZAIKO_HTML_VERSION = '1.2.19';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -531,6 +531,8 @@
       /** 南消費列の表示オフセット。リセット時に当時の累計を入れ、表示は max(0, 累計−本値) */
       minamiDisplayBaseline: null,
       sokoReplenish: 0,
+      /** 本部「西補充確認」済みで、数量が西の受取待ち（日用品の deliveryCommitted に相当） */
+      nishiPatShipCommitted: false,
       discrepancy: { expected: 0, actual: 0, diff: 0, date: '', resolved: true }
     };
   }
@@ -744,6 +746,10 @@
           if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
           if (db.supply[p].nishiConsumedSync == null) db.supply[p].nishiConsumedSync = 0;
           if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
+          if (typeof db.supply[p].nishiPatShipCommitted !== 'boolean') db.supply[p].nishiPatShipCommitted = false;
+          if (!(Number(db.supply[p].nishiReplenish) || 0) && db.supply[p].nishiPatShipCommitted) {
+            db.supply[p].nishiPatShipCommitted = false;
+          }
           if (!db.supply[p].discrepancy || typeof db.supply[p].discrepancy !== 'object') {
             db.supply[p].discrepancy = { expected: 0, actual: 0, diff: 0, date: '', resolved: true };
           }
@@ -1638,19 +1644,23 @@
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       tr.cells[2].textContent = String(nWeek);
+      var patShipCommitted = !!(s.nishiPatShipCommitted);
       tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
-      tr.cells[3].querySelector('input').value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
-      tr.cells[3].querySelector('input').setAttribute('data-p', p);
+      var nrInp = tr.cells[3].querySelector('input');
+      nrInp.value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
+      nrInp.setAttribute('data-p', p);
+      nrInp.disabled = patShipCommitted;
+      nrInp.title = patShipCommitted ? '西補充確認済み。西の受取確認まで数量は固定です。' : '';
       var btnPatNishi = document.createElement('button');
       btnPatNishi.type = 'button';
       btnPatNishi.className = 'btn btn-ghost';
       btnPatNishi.textContent = '西補充確認';
-      btnPatNishi.title = '西在庫に加算・倉庫在庫から減算し、入力を確定してGASに送信します。';
+      btnPatNishi.title = '倉庫在庫から減算し、西への配送予定数を確定します。西在庫への加算は西タブの受取確認で行います。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
       tr.cells[3].appendChild(document.createTextNode(' '));
       tr.cells[3].appendChild(btnPatNishi);
-      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 ? '' : 'none';
+      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 && !patShipCommitted ? '' : 'none';
       tr.cells[4].textContent = String(mShown);
       tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
       tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
@@ -1771,6 +1781,7 @@
       inp.addEventListener('input', function () {
         var pr = inp.getAttribute('data-p');
         if (!db.supply[pr]) return;
+        if (db.supply[pr].nishiPatShipCommitted) return;
         db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
         if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
         var b1 = document.querySelector('#honbu-pat-tbody button[data-act="hon-pat-nishi"][data-p="' + pr + '"]');
@@ -1815,6 +1826,10 @@
     ensureProductRows();
     if (!db.supply[p]) db.supply[p] = defSupplyRow();
     var s = db.supply[p];
+    if (s.nishiPatShipCommitted) {
+      alert('既にこの品目は西補充確認済みです。西側の受取確認が終わるまで待ってください。');
+      return;
+    }
     var inp = findPatTbodyInputByProduct('honbu-pat-tbody', 'h-nr', p);
     if (inp) {
       var v = inp.value === '' ? NaN : parseFloat(inp.value);
@@ -1822,9 +1837,8 @@
     }
     var a = Number(s.nishiReplenish) || 0;
     if (a <= 0) { alert('西補充（入力）に数量を入れてから押してください。'); return; }
-    s.nishiCurrent = (Number(s.nishiCurrent) || 0) + a;
     s.sokoCurrent = (Number(s.sokoCurrent) || 0) - a;
-    s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = true;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
@@ -1833,7 +1847,7 @@
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = '西補充を反映しGASに送信しました。';
+        if (info) info.textContent = '西補充（倉庫出庫）を確定しました。西タブで受取確認してください。';
       });
   }
 
@@ -2058,11 +2072,16 @@
     var beforeShip = countNishiShippingItems();
     if (!db.supply[p]) return;
     var s = db.supply[p];
+    var wasCommitted = !!s.nishiPatShipCommitted;
     var q = Number(s.nishiReplenish) || 0;
     if (q <= 0) return;
     s.discrepancy = { expected: q, actual: q, diff: 0, date: nowStamp(), resolved: true };
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + q;
+    if (!wasCommitted) {
+      s.sokoCurrent = (Number(s.sokoCurrent) || 0) - q;
+    }
     s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
@@ -2078,6 +2097,7 @@
     var beforeShip = countNishiShippingItems();
     if (!db.supply[p]) return;
     var s = db.supply[p];
+    var wasCommitted = !!s.nishiPatShipCommitted;
     var expected = Number(s.nishiReplenish) || 0;
     if (expected <= 0) return;
     var inp = findPatTbodyInputByProduct('n-pat-tbody', 'n-recv-supply', p);
@@ -2090,7 +2110,11 @@
       s.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + actual;
+    if (!wasCommitted) {
+      s.sokoCurrent = (Number(s.sokoCurrent) || 0) - actual;
+    }
     s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
@@ -2321,6 +2345,7 @@
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
       s.nishiReplenish = 0;
+      s.nishiPatShipCommitted = false;
       s.sokoReplenish = 0;
       s.discrepancy = defDiscrepancyResolved();
     });
