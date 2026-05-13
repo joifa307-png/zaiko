@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.17';
+  var ZAIKO_HTML_VERSION = '1.2.18';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1207,7 +1207,7 @@
     return trimNonemptyResetAt(row.at);
   }
 
-  /** ルート / settings に加え supply メタから採用（後方互換つき） */
+  /** ルート / settings に加え supply メタから採用（後方互換つき）。サーバの古い値でローカルの新しいリセット日時を上書きしない。 */
   function applyNishiConsumedResetFromMergedSnapshot(d) {
     if (!d || typeof d !== 'object') {
       syncNishiConsumedResetMirror();
@@ -1218,8 +1218,14 @@
       Object.prototype.hasOwnProperty.call(d.settings, 'nishiConsumedResetAt');
     var s = trimNonemptyResetAt(sHas ? d.settings.nishiConsumedResetAt : null);
     var m = readNishiConsumedResetFromSupplyPayload(d.supply);
-    var pick = r || s || m;
-    if (pick) db.nishiConsumedResetAt = pick;
+    var parts = [r, s, m].filter(function (x) { return x; });
+    var pickFromServer = parts.length ? parts.reduce(function (a, b) { return a > b ? a : b; }) : null;
+    if (pickFromServer) {
+      var cur = db.nishiConsumedResetAt != null ? String(db.nishiConsumedResetAt).trim() : '';
+      if (!cur || pickFromServer > cur) {
+        db.nishiConsumedResetAt = pickFromServer;
+      }
+    }
     syncNishiConsumedResetMirror();
   }
 
@@ -2270,6 +2276,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
+    updateConsumedPeriodLabels();
     return postGAS({ includeNishiConsumedSync: true, skipApplySnapshotFromPost: true, sender: op })
       .then(function () {
         renderHonbu();
