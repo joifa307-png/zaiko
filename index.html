@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.19';
+  var ZAIKO_HTML_VERSION = '1.2.20';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1416,7 +1416,7 @@
     operationalSyncTimer = setTimeout(function () {
       operationalSyncTimer = null;
       gasLog('運用入力同期POST', reason || 'ops-input');
-      postGAS({ skipSuccessAlert: true, sender: getHonbuSender() || '未記入' })
+      postGAS({ skipSuccessAlert: true, skipApplySnapshotFromPost: true, sender: getHonbuSender() || '未記入' })
         .then(function () {
           var info = document.getElementById('honbu-info');
           if (info) info.textContent = '入力をGASへ同期: ' + nowStamp();
@@ -1644,6 +1644,7 @@
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       tr.cells[2].textContent = String(nWeek);
+      // 本部タブでは常に西補充入力＋「西補充確認」（nishiReplenish>0 でも配送中表示にしない。配送中は renderNishi のみ）
       var patShipCommitted = !!(s.nishiPatShipCommitted);
       tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
       var nrInp = tr.cells[3].querySelector('input');
@@ -1787,7 +1788,6 @@
         var b1 = document.querySelector('#honbu-pat-tbody button[data-act="hon-pat-nishi"][data-p="' + pr + '"]');
         if (b1) b1.style.display = (Number(db.supply[pr].nishiReplenish) || 0) > 0 ? '' : 'none';
         saveDb();
-        renderNishi();
         scheduleOperationalSync('honbu-nishi-replenish');
       });
     });
