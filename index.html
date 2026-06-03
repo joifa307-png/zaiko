@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.24';
+  var ZAIKO_HTML_VERSION = '1.2.25';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1778,8 +1778,18 @@
       btnDel.setAttribute('data-p', p);
       tr2.cells[3].appendChild(document.createTextNode(' '));
       tr2.cells[3].appendChild(btnDel);
+      var btnUnlock = document.createElement('button');
+      btnUnlock.type = 'button';
+      btnUnlock.className = 'btn btn-ghost';
+      btnUnlock.textContent = '修正';
+      btnUnlock.title = '納品確認を取り消し、倉庫在庫を戻して数量を再入力できます。';
+      btnUnlock.setAttribute('data-act', 'hon-daily-delivery-unlock');
+      btnUnlock.setAttribute('data-p', p);
+      tr2.cells[3].appendChild(document.createTextNode(' '));
+      tr2.cells[3].appendChild(btnUnlock);
       var dv = Number(d0.deliveryCount) || 0;
       btnDel.style.display = (dv > 0 && !committed) ? '' : 'none';
+      btnUnlock.style.display = (committed && dv > 0) ? '' : 'none';
       (function (product) {
         function syncDeliveryFromInp() {
           if (!db.daily[product]) db.daily[product] = defDailyRow();
@@ -1979,6 +1989,37 @@
         renderNishi();
         var info = document.getElementById('honbu-info');
         if (info) info.textContent = '納品を反映しGASに送信しました。';
+      });
+  }
+
+  /** 日用品・納品確認の取り消し：倉庫減算を戻し、納品数を再入力可能にする */
+  function doHonbuDailyDeliveryUnlock(p) {
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
+    ensureProductRows();
+    if (!db.daily[p]) db.daily[p] = defDailyRow();
+    var d0 = db.daily[p];
+    if (!d0.deliveryCommitted) return;
+    var prev = Number(d0.deliveryCount) || 0;
+    if (prev <= 0) {
+      d0.deliveryCommitted = false;
+      saveDb();
+      renderHonbu();
+      renderNishi();
+      return;
+    }
+    if (!confirm('「' + p + '」の納品数（' + prev + '）を修正します。\n倉庫在庫に ' + prev + ' を戻し、入力を再開します。よろしいですか？')) return;
+    d0.sokoCurrent = (Number(d0.sokoCurrent) || 0) + prev;
+    d0.deliveryCommitted = false;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS({ sender: sen })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '納品数を修正可能にしました: ' + p;
       });
   }
 
@@ -2463,6 +2504,7 @@
     if (t.getAttribute('data-act') === 'hon-pat-soko') { doHonbuPatSokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-daily-delivery-unlock') { doHonbuDailyDeliveryUnlock(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-minami') { doHonbuDailyMinamiConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-minami-oroshi-reset') { doHonbuMinamiOroshiColumnReset(); }
   });
