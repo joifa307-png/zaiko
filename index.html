@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.21';
+  var ZAIKO_HTML_VERSION = '1.2.23';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -514,6 +514,23 @@
       if (list[i].getAttribute('data-p') === product) return list[i];
     }
     return null;
+  }
+
+  function syncHonbuPatNishiReplenishFromInp(inp) {
+    if (!inp) return;
+    var pr = inp.getAttribute('data-p');
+    if (!pr || !db.supply[pr]) return;
+    db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
+    if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
+  }
+
+  function flushHonbuPatNishiReplenishInputsToDb() {
+    document.querySelectorAll('.h-nr').forEach(syncHonbuPatNishiReplenishFromInp);
+  }
+
+  function isHonbuPatNishiReplenishBeingEdited(p) {
+    var el = document.activeElement;
+    return !!(el && el.classList && el.classList.contains('h-nr') && el.getAttribute('data-p') === p);
   }
 
   function defStockRow() { return { initial: 0, warnAt: 10, dangerAt: 5 }; }
@@ -1272,7 +1289,9 @@
         if (!db.supply[p] || typeof db.supply[p] !== 'object' || Array.isArray(db.supply[p])) db.supply[p] = {};
         var row = d.supply[p];
         if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+        var skipNishiReplenish = isHonbuPatNishiReplenishBeingEdited(p);
         Object.keys(row).forEach(function (f) {
+          if (skipNishiReplenish && f === 'nishiReplenish') return;
           db.supply[p][f] = row[f];
         });
         // nishiConsumedSync はGASから返ってこない場合は既存値を維持
@@ -1327,6 +1346,7 @@
   /** POST 応答にマージ済みスナップショットがあればローカルへ反映（他端末と同じ GAS 状態に揃える） */
   function applySnapshotFromPostResponse(text) {
     if (!text || typeof text !== 'string') return;
+    flushHonbuPatNishiReplenishInputsToDb();
     var o = parseGas(text);
     if (!o || typeof o !== 'object' || o.ok === false || String(o.ok).toLowerCase() === 'false') return;
     var body = resolveGASBody(o);
@@ -1432,6 +1452,7 @@
   }
 
   function processGetResponse(t, fromLabel) {
+    flushHonbuPatNishiReplenishInputsToDb();
     var preview = t;
     if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
     gasLog((fromLabel || 'GET 受信') + ' raw', preview, { len: t ? t.length : 0 });
@@ -1526,16 +1547,18 @@
       }
     });
 
+    var wPrint = weekMonday;
     var patRows = '';
     products.forEach(function (p) {
       var s = db.supply[p];
       if (!s) return;
-      var consumed = Number(s.nishiConsumedSync) || 0;
+      var consumed = getNishiWeekConsumed(p, wPrint);
       if (consumed <= 0) return;
-      var current = Number(s.nishiCurrent) || 0;
+      var wk = patStockNishi(p, wPrint);
+      var currentDisp = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       patRows += '<tr>'
         + '<td>' + escapeText(p) + '</td>'
-        + '<td style="text-align:center;">' + current + '</td>'
+        + '<td style="text-align:center;">' + escapeText(currentDisp) + '</td>'
         + '<td style="text-align:center;">' + consumed + '</td>'
         + '<td></td>'
         + '</tr>';
@@ -1604,6 +1627,7 @@
   }
 
   function renderHonbu() {
+    flushHonbuPatNishiReplenishInputsToDb();
     ensureProductRows();
     updateDiscrepancyBanners();
     updateConsumedPeriodLabels();
@@ -1652,6 +1676,24 @@
       tr.cells[3].appendChild(document.createTextNode(' '));
       tr.cells[3].appendChild(btnPatNishi);
       btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 ? '' : 'none';
+      (function (product, nrInput, btnNishi) {
+        function syncNishiReplenishDraft() {
+          syncHonbuPatNishiReplenishFromInp(nrInput);
+          btnNishi.style.display = (Number(db.supply[product].nishiReplenish) || 0) > 0 ? '' : 'none';
+        }
+        nrInput.addEventListener('input', function () {
+          syncNishiReplenishDraft();
+          saveDb();
+        });
+        function commitNishiReplenishDraft() {
+          syncNishiReplenishDraft();
+          saveDb();
+          renderNishi();
+          scheduleOperationalSync('honbu-nishi-replenish');
+        }
+        nrInput.addEventListener('blur', commitNishiReplenishDraft);
+        nrInput.addEventListener('change', commitNishiReplenishDraft);
+      })(p, nrInp, btnPatNishi);
       tr.cells[4].textContent = String(mShown);
       tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
       tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
@@ -1767,18 +1809,6 @@
       tr2.cells[7].textContent = '—';
       tr2.cells[8].innerHTML = '<span class="' + badgeClass(stD.k) + '">' + stD.label + '</span>';
       dtb.appendChild(tr2);
-    });
-    document.querySelectorAll('.h-nr').forEach(function (inp) {
-      inp.addEventListener('input', function () {
-        var pr = inp.getAttribute('data-p');
-        if (!db.supply[pr]) return;
-        db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
-        if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
-        var b1 = document.querySelector('#honbu-pat-tbody button[data-act="hon-pat-nishi"][data-p="' + pr + '"]');
-        if (b1) b1.style.display = (Number(db.supply[pr].nishiReplenish) || 0) > 0 ? '' : 'none';
-        saveDb();
-        scheduleOperationalSync('honbu-nishi-replenish');
-      });
     });
     document.querySelectorAll('.h-sr').forEach(function (inp) {
       inp.addEventListener('input', function () {
