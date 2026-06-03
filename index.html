@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.23';
+  var ZAIKO_HTML_VERSION = '1.2.24';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -531,6 +531,29 @@
   function isHonbuPatNishiReplenishBeingEdited(p) {
     var el = document.activeElement;
     return !!(el && el.classList && el.classList.contains('h-nr') && el.getAttribute('data-p') === p);
+  }
+
+  function syncHonbuDailyDeliveryFromInp(inp) {
+    if (!inp) return;
+    var pr = inp.getAttribute('data-p');
+    if (!pr || !db.daily[pr]) return;
+    if (db.daily[pr].deliveryCommitted) return;
+    db.daily[pr].deliveryCount = inp.value === '' ? 0 : parseFloat(inp.value);
+    if (isNaN(db.daily[pr].deliveryCount)) db.daily[pr].deliveryCount = 0;
+  }
+
+  function flushHonbuDailyDeliveryInputsToDb() {
+    document.querySelectorAll('.h-dv').forEach(syncHonbuDailyDeliveryFromInp);
+  }
+
+  function isHonbuDailyDeliveryBeingEdited(p) {
+    var el = document.activeElement;
+    return !!(el && el.classList && el.classList.contains('h-dv') && el.getAttribute('data-p') === p);
+  }
+
+  function flushHonbuDraftInputsToDb() {
+    flushHonbuPatNishiReplenishInputsToDb();
+    flushHonbuDailyDeliveryInputsToDb();
   }
 
   function defStockRow() { return { initial: 0, warnAt: 10, dangerAt: 5 }; }
@@ -1298,7 +1321,17 @@
       });
     }
     if (d.daily && typeof d.daily === 'object') {
-      db.daily = d.daily;
+      if (!db.daily || typeof db.daily !== 'object') db.daily = {};
+      Object.keys(d.daily).forEach(function (p) {
+        if (!db.daily[p] || typeof db.daily[p] !== 'object' || Array.isArray(db.daily[p])) db.daily[p] = {};
+        var row = d.daily[p];
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+        var skipDeliveryDraft = isHonbuDailyDeliveryBeingEdited(p);
+        Object.keys(row).forEach(function (f) {
+          if (skipDeliveryDraft && (f === 'deliveryCount' || f === 'deliveryCommitted')) return;
+          db.daily[p][f] = row[f];
+        });
+      });
     }
     if (d.message && typeof d.message === 'object' && !Array.isArray(d.message)) {
       db.message = {
@@ -1346,7 +1379,7 @@
   /** POST 応答にマージ済みスナップショットがあればローカルへ反映（他端末と同じ GAS 状態に揃える） */
   function applySnapshotFromPostResponse(text) {
     if (!text || typeof text !== 'string') return;
-    flushHonbuPatNishiReplenishInputsToDb();
+    flushHonbuDraftInputsToDb();
     var o = parseGas(text);
     if (!o || typeof o !== 'object' || o.ok === false || String(o.ok).toLowerCase() === 'false') return;
     var body = resolveGASBody(o);
@@ -1452,7 +1485,7 @@
   }
 
   function processGetResponse(t, fromLabel) {
-    flushHonbuPatNishiReplenishInputsToDb();
+    flushHonbuDraftInputsToDb();
     var preview = t;
     if (preview && preview.length > 4000) preview = preview.slice(0, 4000) + '…(truncated)';
     gasLog((fromLabel || 'GET 受信') + ' raw', preview, { len: t ? t.length : 0 });
@@ -1627,7 +1660,7 @@
   }
 
   function renderHonbu() {
-    flushHonbuPatNishiReplenishInputsToDb();
+    flushHonbuDraftInputsToDb();
     ensureProductRows();
     updateDiscrepancyBanners();
     updateConsumedPeriodLabels();
@@ -1753,17 +1786,26 @@
           if (db.daily[product].deliveryCommitted) return;
           db.daily[product].deliveryCount = dvInp.value === '' ? 0 : parseFloat(dvInp.value);
           if (isNaN(db.daily[product].deliveryCount)) db.daily[product].deliveryCount = 0;
-          console.log('deliveryCount更新:', product, db.daily[product].deliveryCount);
         }
-        dvInp.addEventListener('input', function () {
-          syncDeliveryFromInp();
+        function refreshDeliveryBtn() {
           var dR = db.daily[product] || {};
           var dvn = Number(dR.deliveryCount) || 0;
           btnDel.style.display = (dvn > 0 && !dR.deliveryCommitted) ? '' : 'none';
+        }
+        dvInp.addEventListener('input', function () {
+          syncDeliveryFromInp();
+          refreshDeliveryBtn();
+          saveDb();
+        });
+        function commitDeliveryDraft() {
+          syncDeliveryFromInp();
+          refreshDeliveryBtn();
           saveDb();
           renderNishi();
           scheduleOperationalSync('honbu-delivery-input');
-        });
+        }
+        dvInp.addEventListener('blur', commitDeliveryDraft);
+        dvInp.addEventListener('change', commitDeliveryDraft);
       })(p);
       tr2.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-mi" id="honbu-mi-daily-' + dIdx + '" data-p="" data-product="" style="width:4.5rem" />';
       var miInp = tr2.cells[4].querySelector('input');
