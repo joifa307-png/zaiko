@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.25';
+  var ZAIKO_HTML_VERSION = '1.2.26';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1379,7 +1379,6 @@
   /** POST 応答にマージ済みスナップショットがあればローカルへ反映（他端末と同じ GAS 状態に揃える） */
   function applySnapshotFromPostResponse(text) {
     if (!text || typeof text !== 'string') return;
-    flushHonbuDraftInputsToDb();
     var o = parseGas(text);
     if (!o || typeof o !== 'object' || o.ok === false || String(o.ok).toLowerCase() === 'false') return;
     var body = resolveGASBody(o);
@@ -1390,7 +1389,18 @@
     saveDb();
   }
 
-  function postGAS(opts) {
+  var postGASTail = Promise.resolve();
+
+  /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
+  function postGASFromNishi(op, extra) {
+    var base = { sender: op, skipApplySnapshotFromPost: true };
+    if (extra && typeof extra === 'object') {
+      Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    }
+    return postGAS(base);
+  }
+
+  function postGASImpl(opts) {
     console.log('postGAS直前 db.daily トイレットペーパー:', db.daily && db.daily['トイレットペーパー'] ? {
       nishiOrder: db.daily['トイレットペーパー'].nishiOrder,
       nishiOrderDate: db.daily['トイレットペーパー'].nishiOrderDate
@@ -1436,6 +1446,13 @@
         }
         throw err;
       });
+  }
+
+  function postGAS(opts) {
+    var run = function () { return postGASImpl(opts); };
+    var queued = postGASTail.then(run, run);
+    postGASTail = queued.catch(function () {});
+    return queued;
   }
   try { window.__postGAS = postGAS; } catch (e) {}
 
@@ -2179,7 +2196,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () {
+    return postGASFromNishi(op).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
     });
@@ -2207,7 +2224,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () {
+    return postGASFromNishi(op).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
     });
@@ -2221,7 +2238,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () {
+    return postGASFromNishi(op).then(function () {
       renderNishi();
       renderHonbu();
       document.getElementById('honbu-info').textContent = '発注しました';
@@ -2270,7 +2287,7 @@
     saveDb();
     renderNishi();
     renderHonbu();
-    return postGAS({ sender: op })
+    return postGASFromNishi(op)
       .then(function () { renderNishi(); renderHonbu(); })
       .catch(function (e) {
         renderNishi();
@@ -2305,7 +2322,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op }).then(function () {
+    return postGASFromNishi(op).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
     });
@@ -2346,7 +2363,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGAS({ sender: op, isBulkOrder: true }).then(function () { renderNishi(); renderHonbu(); });
+    return postGASFromNishi(op, { isBulkOrder: true }).then(function () { renderNishi(); renderHonbu(); });
   }
 
   function countNishiShippingItems() {
