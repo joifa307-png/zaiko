@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.26';
+  var ZAIKO_HTML_VERSION = '1.2.27';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -517,15 +517,18 @@
   }
 
   function syncHonbuPatNishiReplenishFromInp(inp) {
-    if (!inp) return;
+    if (!inp || inp.disabled) return;
     var pr = inp.getAttribute('data-p');
     if (!pr || !db.supply[pr]) return;
     db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
     if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
   }
 
+  /** 入力中（フォーカス中）の欄だけ db へ退避。全欄を読むと西受取後の古い本部DOMで巻き戻る */
   function flushHonbuPatNishiReplenishInputsToDb() {
-    document.querySelectorAll('.h-nr').forEach(syncHonbuPatNishiReplenishFromInp);
+    document.querySelectorAll('.h-nr').forEach(function (inp) {
+      if (document.activeElement === inp) syncHonbuPatNishiReplenishFromInp(inp);
+    });
   }
 
   function isHonbuPatNishiReplenishBeingEdited(p) {
@@ -534,7 +537,7 @@
   }
 
   function syncHonbuDailyDeliveryFromInp(inp) {
-    if (!inp) return;
+    if (!inp || inp.disabled) return;
     var pr = inp.getAttribute('data-p');
     if (!pr || !db.daily[pr]) return;
     if (db.daily[pr].deliveryCommitted) return;
@@ -543,7 +546,9 @@
   }
 
   function flushHonbuDailyDeliveryInputsToDb() {
-    document.querySelectorAll('.h-dv').forEach(syncHonbuDailyDeliveryFromInp);
+    document.querySelectorAll('.h-dv').forEach(function (inp) {
+      if (document.activeElement === inp) syncHonbuDailyDeliveryFromInp(inp);
+    });
   }
 
   function isHonbuDailyDeliveryBeingEdited(p) {
