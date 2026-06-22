@@ -370,7 +370,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.27';
+  var ZAIKO_HTML_VERSION = '1.2.29';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1405,6 +1405,30 @@
     return postGAS(base);
   }
 
+  function formatLwNotifySummary(lw) {
+    if (!lw || typeof lw !== 'object') return '';
+    if (lw.skipped === 'not_bulk_order') return '（LW: 一括発注以外のため通知なし）';
+    if (lw.skipped === 'no_order_lines') return '（LW: 発注行が組み立てられず通知スキップ）';
+    if (!Array.isArray(lw.results) || !lw.results.length) {
+      return '（LW: 送信結果なし userCount=' + (lw.userCount != null ? lw.userCount : '?') + '）';
+    }
+    return lw.results.map(function (r) {
+      if (r.error) return (r.userId || '?') + '=ERR';
+      var uid = r.userId ? String(r.userId).split('@')[0] : '?';
+      return uid + '=' + (r.status != null ? r.status : '?');
+    }).join(', ');
+  }
+
+  function extractLwNotifyFromPostText(text) {
+    if (!text || typeof text !== 'string') return null;
+    var o = parseGas(text);
+    if (!o || typeof o !== 'object') return null;
+    if (o.lwNotify && typeof o.lwNotify === 'object') return o.lwNotify;
+    var body = resolveGASBody(o);
+    if (body && body.lwNotify && typeof body.lwNotify === 'object') return body.lwNotify;
+    return null;
+  }
+
   function postGASImpl(opts) {
     console.log('postGAS直前 db.daily トイレットペーパー:', db.daily && db.daily['トイレットペーパー'] ? {
       nishiOrder: db.daily['トイレットペーパー'].nishiOrder,
@@ -2368,7 +2392,22 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGASFromNishi(op, { isBulkOrder: true }).then(function () { renderNishi(); renderHonbu(); });
+    return postGASFromNishi(op, { isBulkOrder: true }).then(function (text) {
+      var lw = extractLwNotifyFromPostText(text);
+      var sum = lw ? formatLwNotifySummary(lw) : '';
+      if (lw) {
+        console.log('LW通知結果', lw);
+        gasLog('LW通知結果', lw);
+      }
+      var nInfo = document.getElementById('nishi-import-info');
+      if (nInfo) {
+        nInfo.textContent = sum ? ('発注を送信しました。LW: ' + sum) : '発注を送信しました（LW結果なし＝GAS未更新の可能性）';
+      }
+      var info = document.getElementById('honbu-info');
+      if (info && sum) info.textContent = '発注を送信しました。LW: ' + sum;
+      renderNishi();
+      renderHonbu();
+    });
   }
 
   function countNishiShippingItems() {
