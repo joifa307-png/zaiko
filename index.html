@@ -171,6 +171,7 @@
     }
     .comms-line { font-size: 0.95rem; color: #334155; margin: 0.35rem 0; }
     .comms-line-honbu-alert { color: #b91c1c; font-size: 1.08rem; font-weight: 600; }
+    .comms-line-nishi-alert { color: #b91c1c; font-size: 1.08rem; font-weight: 600; }
     .comms-input-row { max-width: 36rem; margin: 0.4rem auto 0; }
     .comms-input-row--inline {
       display: flex;
@@ -227,6 +228,9 @@
         </div>
         <div id="honbu-comms" style="text-align:center; margin: 0.5rem 0 0.75rem;">
           <p class="comms-line" id="honbu-msg-latest">（直近のメッセージはありません）</p>
+          <p id="honbu-msg-actions" hidden style="margin:0.35rem 0;">
+            <button type="button" class="btn btn-ghost" id="honbu-msg-confirm">確認済み（表示を消す）</button>
+          </p>
           <div class="comms-input-row comms-input-row--inline">
             <textarea class="comms-ta" id="honbu-msg-inp" rows="2" placeholder="メッセージを入力"></textarea>
             <button type="button" class="btn" id="honbu-msg-send">送信</button>
@@ -370,7 +374,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.29';
+  var ZAIKO_HTML_VERSION = '1.2.30';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1072,16 +1076,43 @@
       sel.value = saved;
     } else { sel.value = ''; }
   }
+  function hasUnreadWestMessage() {
+    return !!(db.message && db.message.from === '西' && String(db.message.text || '').trim());
+  }
+  function hasUnreadHonbuMessage() {
+    return !!(db.message && db.message.from === '本部' && String(db.message.text || '').trim());
+  }
   function updateMessageAreas() {
     var elH = document.getElementById('honbu-msg-latest');
     var elN = document.getElementById('nishi-msg-latest');
+    var honbuActions = document.getElementById('honbu-msg-actions');
     var t = formatMessageForDisplay();
-    if (elH) elH.textContent = t;
+    if (elH) {
+      elH.textContent = t;
+      elH.classList.toggle('comms-line-nishi-alert', hasUnreadWestMessage());
+    }
+    if (honbuActions) honbuActions.hidden = !hasUnreadWestMessage();
     if (elN) {
       elN.textContent = t;
-      var isHonbuMessage = !!(db.message && db.message.from === '本部' && String(db.message.text || '').trim());
-      elN.classList.toggle('comms-line-honbu-alert', isHonbuMessage);
+      elN.classList.toggle('comms-line-honbu-alert', hasUnreadHonbuMessage());
     }
+  }
+  function doHonbuMessageConfirm() {
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
+    if (!hasUnreadWestMessage()) return;
+    if (!confirm('西からのメッセージを確認済みにし、表示を消します。よろしいですか？')) return;
+    db.message = { from: '', text: '', sentAt: '' };
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS({ skipSuccessAlert: true, sender: sen })
+      .then(function () {
+        updateMessageAreas();
+        renderStamp();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = 'メッセージを確認済み: ' + nowStamp();
+      });
   }
   function formatNishiOrderLineHonbu(d0) {
     if (!d0 || !Number(d0.nishiOrder)) return '—';
@@ -3078,6 +3109,8 @@
     var honbuSyncBtn = document.getElementById('btn-sync-get');
     if (hbSend) hbSend.addEventListener('click', function () { sendCommsMessage('本部'); });
     if (nsSend) nsSend.addEventListener('click', function () { sendCommsMessage('西'); });
+    var hbMsgConfirm = document.getElementById('honbu-msg-confirm');
+    if (hbMsgConfirm) hbMsgConfirm.addEventListener('click', function () { doHonbuMessageConfirm(); });
     if (nishiSyncBtn) nishiSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     if (honbuSyncBtn) honbuSyncBtn.addEventListener('click', function () { runManualSyncGet(); });
     var honbuPrintBtn = document.getElementById('btn-honbu-print');
