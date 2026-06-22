@@ -374,7 +374,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.30';
+  var ZAIKO_HTML_VERSION = '1.2.32';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -524,6 +524,7 @@
     if (!inp || inp.disabled) return;
     var pr = inp.getAttribute('data-p');
     if (!pr || !db.supply[pr]) return;
+    if (db.supply[pr].nishiPatShipCommitted) return;
     db.supply[pr].nishiReplenish = inp.value === '' ? 0 : parseFloat(inp.value);
     if (isNaN(db.supply[pr].nishiReplenish)) db.supply[pr].nishiReplenish = 0;
   }
@@ -573,6 +574,8 @@
       /** 南消費（累計、GAS同期値）。表示用。 */
       minamiConsumedSync: 0,
       nishiReplenish: 0,
+      /** true の間は本部「西補充確認」済みで倉庫は減算済み。nishiReplenish は西の受取UI用に維持 */
+      nishiPatShipCommitted: false,
       nishiCurrent: 0,
       sokoCurrent: 0,
       /** 介護記録(南)の累計のうち、既に sokoCurrent に減算反映した数量（null は未ベースライン） */
@@ -791,6 +794,12 @@
         if (!db.supply[p]) db.supply[p] = defSupplyRow();
         else {
           if (db.supply[p].nishiReplenish == null) db.supply[p].nishiReplenish = 0;
+          if (typeof db.supply[p].nishiPatShipCommitted !== 'boolean') {
+            db.supply[p].nishiPatShipCommitted = !!db.supply[p].nishiPatShipCommitted;
+          }
+          if (!(Number(db.supply[p].nishiReplenish) || 0) && db.supply[p].nishiPatShipCommitted) {
+            db.supply[p].nishiPatShipCommitted = false;
+          }
           if (db.supply[p].nishiConsumedSync == null) db.supply[p].nishiConsumedSync = 0;
           if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
           if (!db.supply[p].discrepancy || typeof db.supply[p].discrepancy !== 'object') {
@@ -1774,22 +1783,28 @@
       tr.cells[2].textContent = String(nWeek);
       tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
       var nrInp = tr.cells[3].querySelector('input');
+      var patShipCommitted = !!(s.nishiPatShipCommitted);
       nrInp.value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
       nrInp.setAttribute('data-p', p);
+      nrInp.disabled = patShipCommitted;
+      nrInp.title = patShipCommitted ? '西補充確認済み。西の受取確認まで数量は固定です。' : '';
       var btnPatNishi = document.createElement('button');
       btnPatNishi.type = 'button';
       btnPatNishi.className = 'btn btn-ghost';
       btnPatNishi.textContent = '西補充確認';
-      btnPatNishi.title = '西在庫に加算・倉庫在庫から減算し、入力を確定してGASに送信します。';
+      btnPatNishi.title = '倉庫在庫から減算し、西タブで受取待ちにします。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
       tr.cells[3].appendChild(document.createTextNode(' '));
       tr.cells[3].appendChild(btnPatNishi);
-      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 ? '' : 'none';
+      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 && !patShipCommitted ? '' : 'none';
       (function (product, nrInput, btnNishi) {
         function syncNishiReplenishDraft() {
+          if (!db.supply[product]) db.supply[product] = defSupplyRow();
+          if (db.supply[product].nishiPatShipCommitted) return;
           syncHonbuPatNishiReplenishFromInp(nrInput);
-          btnNishi.style.display = (Number(db.supply[product].nishiReplenish) || 0) > 0 ? '' : 'none';
+          var n = Number(db.supply[product].nishiReplenish) || 0;
+          btnNishi.style.display = (n > 0 && !db.supply[product].nishiPatShipCommitted) ? '' : 'none';
         }
         nrInput.addEventListener('input', function () {
           syncNishiReplenishDraft();
@@ -1981,9 +1996,10 @@
     }
     var a = Number(s.nishiReplenish) || 0;
     if (a <= 0) { alert('西補充（入力）に数量を入れてから押してください。'); return; }
-    s.nishiCurrent = (Number(s.nishiCurrent) || 0) + a;
+    if (s.nishiPatShipCommitted) { alert('既にこの品目は西補充確認済みです。西の受取確認までお待ちください。'); return; }
+    // 倉庫在庫のみ減算。nishiReplenish は西タブの「配送中／受取数入力」用に維持（日用品の納品確認と同型）
     s.sokoCurrent = (Number(s.sokoCurrent) || 0) - a;
-    s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = true;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
@@ -1992,7 +2008,7 @@
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = '西補充を反映しGASに送信しました。';
+        if (info) info.textContent = '西補充を倉庫から出庫しGASに送信しました（西の受取待ち）。';
       });
   }
 
@@ -2175,19 +2191,22 @@
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = String(sumN[p] != null ? sumN[p] : 0);
       tr.cells[2].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
-      if (s.nishiReplenish > 0) {
+      if ((Number(s.nishiReplenish) || 0) > 0) {
         tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個' +
           '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
           '<span class="meta-line">予定: ' + s.nishiReplenish + '個</span> ' +
           '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
-      } else { tr.cells[3].textContent = '—'; }
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-ghost';
-      btn.textContent = '受取';
-      btn.setAttribute('data-act', 'n-pat');
-      btn.setAttribute('data-p', p);
-      tr.cells[4].appendChild(btn);
+        tr.cells[4].textContent = '—';
+      } else {
+        tr.cells[3].textContent = '—';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-ghost';
+        btn.textContent = '受取';
+        btn.setAttribute('data-act', 'n-pat');
+        btn.setAttribute('data-p', p);
+        tr.cells[4].appendChild(btn);
+      }
       tr.cells[5].innerHTML = '<span class="' + badgeClass(stN.k) + '">' + stN.label + '</span>';
       ptb.appendChild(tr);
     });
@@ -2253,6 +2272,7 @@
     s.discrepancy = { expected: q, actual: q, diff: 0, date: nowStamp(), resolved: true };
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + q;
     s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
@@ -2281,6 +2301,7 @@
     }
     s.nishiCurrent = (Number(s.nishiCurrent) || 0) + actual;
     s.nishiReplenish = 0;
+    s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
