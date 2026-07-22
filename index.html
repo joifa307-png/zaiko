@@ -239,14 +239,13 @@
         <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
-          <strong>西在庫</strong>は <strong>nishiCurrent（直接管理）</strong>です。西消費の増加で減算、西の受取確認で加算します（西補充の入力・本部確認だけでは増えません）。<strong>倉庫在庫</strong>は <strong>sokoCurrent</strong>です。<strong>南消費</strong>は GAS 同期の累計（<code>minamiConsumedSync</code>）表示です。
+          西の在庫数は管理しません。<strong>西消費</strong>は介護記録からの週次集計、<strong>倉庫在庫</strong>は <strong>sokoCurrent</strong>です。<strong>南消費</strong>は GAS 同期の累計（<code>minamiConsumedSync</code>）表示です。
         </p>
         <div class="table-wrap">
           <table id="honbu-pat">
             <thead>
               <tr>
                 <th>品目</th>
-                <th class="col-west">西在庫</th>
                 <th class="col-west">西消費</th>
                 <th class="col-west">西補充(入力)</th>
                 <th class="col-south col-divide">南消費</th>
@@ -315,10 +314,8 @@
               <tr>
                 <th>品目</th>
                 <th>西消費(自動)</th>
-                <th>西在庫</th>
                 <th>西補充</th>
                 <th>受取</th>
-                <th>状態</th>
               </tr>
             </thead>
             <tbody id="n-pat-tbody"></tbody>
@@ -374,7 +371,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.33';
+  var ZAIKO_HTML_VERSION = '1.2.34';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -576,10 +573,7 @@
       nishiReplenish: 0,
       /** true の間は本部「西補充確認」済みで倉庫は減算済み。nishiReplenish は西の受取UI用に維持 */
       nishiPatShipCommitted: false,
-      nishiCurrent: 0,
       sokoCurrent: 0,
-      /** 週次西消費のうち、既に nishiCurrent へ減算反映した数量（null は旧式表示からの折込前） */
-      nishiConsumedAppliedTotal: null,
       /** 介護記録(南)の累計のうち、既に sokoCurrent に減算反映した数量（null は未ベースライン） */
       minamiConsumedAppliedTotal: null,
       /** 南消費列の表示オフセット。リセット時に当時の累計を入れ、表示は max(0, 累計−本値) */
@@ -611,6 +605,9 @@
     delete s.sokoReplenishTotal;
     delete s.cumeWestTransfer;
     delete s.cumeSokoInbound;
+    /** 西在庫は管理しない方針のため送信・保管から除去 */
+    delete s.nishiCurrent;
+    delete s.nishiConsumedAppliedTotal;
   }
 
   /** 日用品の旧累計を除去 */
@@ -629,28 +626,17 @@
     if (typeof s.minamiConsumedSync !== 'number') s.minamiConsumedSync = Number(s.minamiConsumedSync) || 0;
     if (typeof s.nishiReplenish !== 'number') s.nishiReplenish = Number(s.nishiReplenish) || 0;
     if (typeof s.sokoReplenish !== 'number') s.sokoReplenish = Number(s.sokoReplenish) || 0;
-    if (s.nishiCurrent != null && s.nishiCurrent !== '' && !isNaN(Number(s.nishiCurrent))) s.nishiCurrent = Number(s.nishiCurrent);
     if (s.sokoCurrent != null && s.sokoCurrent !== '' && !isNaN(Number(s.sokoCurrent))) s.sokoCurrent = Number(s.sokoCurrent);
-    if (typeof s.nishiCurrent === 'number' && !isNaN(s.nishiCurrent) && typeof s.sokoCurrent === 'number' && !isNaN(s.sokoCurrent)) {
+    if (typeof s.sokoCurrent === 'number' && !isNaN(s.sokoCurrent)) {
       stripLegacySupplyTotals(s);
       return;
     }
-    var ns = db.settings.nishiStock[p] || defStockRow();
     var sk = db.settings.sokoStock[p] || defStockRow();
-    var nSync = Number(s.nishiConsumedSync) || 0;
     var nRt = Number(s.nishiReplenishTotal) || 0;
     var sRt = Number(s.sokoReplenishTotal) || 0;
     if (nRt === 0 && s.cumeWestTransfer != null) nRt = Number(s.cumeWestTransfer) || 0;
     if (sRt === 0 && s.cumeSokoInbound != null) sRt = Number(s.cumeSokoInbound) || 0;
-    var nInit = Number(ns.initial) || 0;
     var sInit = Number(sk.initial) || 0;
-    if (typeof s.nishiCurrent !== 'number') {
-      // 旧式: 初期 − 消費 + 補充累計（消費は既に折込済みなので applied も合わせておく）
-      s.nishiCurrent = nInit - nSync + nRt;
-      if (s.nishiConsumedAppliedTotal == null || s.nishiConsumedAppliedTotal === '') {
-        s.nishiConsumedAppliedTotal = nSync;
-      }
-    }
     if (typeof s.sokoCurrent !== 'number') {
       s.sokoCurrent = sInit - nRt + sRt;
     }
@@ -848,53 +834,7 @@
         if (!db.settings.nishiStock[p]) db.settings.nishiStock[p] = defStockRow();
       });
     }
-    applyNishiConsumedDeltaToNishiCurrent();
     applyPatMinamiDeltaToSokoCurrent();
-  }
-
-  /**
-   * 西消費（週次）の増加分を西現在在庫から減算する。
-   * 初回（applied 未設定）は旧表示式「nishiCurrent − sync」と同じ現物になるよう一度折り込む。
-   * sync が減る（週次リセット等）ときはカウンターだけ合わせ、在庫は戻さない。
-   */
-  function applyNishiConsumedDeltaForProduct(p) {
-    if (!p || !db.supply) return false;
-    if (!db.supply[p]) db.supply[p] = defSupplyRow();
-    var s = db.supply[p];
-    var sync = s.nishiConsumedSync != null ? (Number(s.nishiConsumedSync) || 0) : 0;
-    if (isNaN(sync)) sync = 0;
-    var raw = s.nishiConsumedAppliedTotal;
-    if (raw == null || raw === '') {
-      // 旧: 表示 = nishiCurrent − sync → 実数へ折込
-      s.nishiCurrent = (Number(s.nishiCurrent) || 0) - sync;
-      s.nishiConsumedAppliedTotal = sync;
-      return true;
-    }
-    var applied = Number(raw) || 0;
-    var delta = sync - applied;
-    if (delta > 0) {
-      s.nishiCurrent = (Number(s.nishiCurrent) || 0) - delta;
-      s.nishiConsumedAppliedTotal = sync;
-      return true;
-    }
-    if (delta < 0) {
-      s.nishiConsumedAppliedTotal = sync;
-      return true;
-    }
-    return false;
-  }
-
-  function applyNishiConsumedDeltaToNishiCurrent() {
-    var products = db.settings.supplyProducts || [];
-    if (!products.length) return false;
-    var changed = false;
-    products.forEach(function (p) {
-      if (applyNishiConsumedDeltaForProduct(p)) changed = true;
-    });
-    if (changed) {
-      try { saveDb(); } catch (e) {}
-    }
-    return changed;
   }
 
   /** 介護記録 localStorage(kaigo_minami) にデータがあるか（この端末でのみ南消費を在庫に反映する） */
@@ -962,14 +902,6 @@
       var v = allN[p] != null ? Number(allN[p]) || 0 : 0;
       db.supply[p].nishiConsumedSync = v;
     });
-    applyNishiConsumedDeltaToNishiCurrent();
-  }
-
-  /** パット類・西在庫（nishiCurrent を直接表示。消費減・受取増は nishiCurrent 自体に反映済み） */
-  function patStockNishi(p, monday) {
-    ensureProductRows();
-    var s = db.supply[p] || defSupplyRow();
-    return Number(s.nishiCurrent) || 0;
   }
 
   /** パット類・倉庫在庫（sokoCurrent を直接表示） */
@@ -984,16 +916,6 @@
     ensureProductRows();
     var d = db.daily[p] || defDailyRow();
     return Number(d.sokoCurrent) || 0;
-  }
-
-  /** 西（パット）表示在庫に対する状態（設定「西」の閾値） */
-  function statusFromNishiWest(p, monday) {
-    var st = (db.settings.nishiStock[p] && db.settings.nishiStock[p].warnAt != null) ? db.settings.nishiStock[p].warnAt : 10;
-    var dg = (db.settings.nishiStock[p] && db.settings.nishiStock[p].dangerAt != null) ? db.settings.nishiStock[p].dangerAt : 5;
-    var n = patStockNishi(p, monday);
-    if (n <= dg) return { k: 'danger', label: '!!緊急' };
-    if (n <= st) return { k: 'warn', label: '⚠要補充' };
-    return { k: 'ok', label: '正常' };
   }
 
   /** 倉庫在庫に対する状態（設定「倉庫」の閾値。sokoStock） */
@@ -1410,30 +1332,12 @@
         var row = d.supply[p];
         if (!row || typeof row !== 'object' || Array.isArray(row)) return;
         var skipNishiReplenish = isHonbuPatNishiReplenishBeingEdited(p);
-        var incomingSync = null;
-        var hasIncomingSync = false;
-        var hasIncomingCurrent = Object.prototype.hasOwnProperty.call(row, 'nishiCurrent');
         Object.keys(row).forEach(function (f) {
           if (skipNishiReplenish && f === 'nishiReplenish') return;
-          if (f === 'nishiConsumedSync' || f === 'nishConsumedSync') {
-            hasIncomingSync = true;
-            incomingSync = row[f];
-            return;
-          }
+          if (f === 'nishiCurrent' || f === 'nishiConsumedAppliedTotal') return;
           db.supply[p][f] = row[f];
         });
-        // nishiConsumedSync は GAS から返ってこない場合は既存値を維持。
-        // 介護記録など sync のみ更新のときは差分を西在庫へ反映。両方来るときはサーバの nishiCurrent を信頼。
-        if (hasIncomingSync) {
-          var neu = incomingSync != null && incomingSync !== '' ? Number(incomingSync) : 0;
-          if (isNaN(neu)) neu = 0;
-          db.supply[p].nishiConsumedSync = neu;
-          if (hasIncomingCurrent) {
-            db.supply[p].nishiConsumedAppliedTotal = neu;
-          } else {
-            applyNishiConsumedDeltaForProduct(p);
-          }
-        }
+        // nishiConsumedSync はGASから返ってこない場合は既存値を維持
       });
     }
     if (d.daily && typeof d.daily === 'object') {
@@ -1744,11 +1648,8 @@
       if (!s) return;
       var consumed = getNishiWeekConsumed(p, wPrint);
       if (consumed <= 0) return;
-      var wk = patStockNishi(p, wPrint);
-      var currentDisp = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       patRows += '<tr>'
         + '<td>' + escapeText(p) + '</td>'
-        + '<td style="text-align:center;">' + escapeText(currentDisp) + '</td>'
         + '<td style="text-align:center;">' + consumed + '</td>'
         + '<td></td>'
         + '</tr>';
@@ -1789,7 +1690,7 @@
     html += '<h2>パット類</h2>';
     if (patRows) {
       html += '<table>'
-        + '<thead><tr><th>品目</th><th>西在庫</th><th>西消費</th><th>西補充</th></tr></thead>'
+        + '<thead><tr><th>品目</th><th>西消費</th><th>西補充</th></tr></thead>'
         + '<tbody>' + patRows + '</tbody>'
         + '</table>';
     } else {
@@ -1835,25 +1736,22 @@
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
-      var wk = patStockNishi(p, wN);
       var sko = patStockSoko(p);
       var nWeek = allN[p] != null ? allN[p] : 0;
       var mAll = s.minamiConsumedSync != null ? (Number(s.minamiConsumedSync) || 0) : 0;
       var blM = s.minamiDisplayBaseline != null ? Number(s.minamiDisplayBaseline) || 0 : 0;
       var mShown = Math.max(0, (Number(mAll) || 0) - blM);
-      gasLog('stock calc ' + p, { nishiStock: wk, sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll, minamiShown: mShown });
-      var stW = statusFromNishiWest(p, wN);
+      gasLog('stock calc ' + p, { sokoStock: sko, nishiConsumedWeek: nWeek, minamiConsumedAll: mAll, minamiShown: mShown });
       var stSk = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td></td><td class="num col-west"></td><td class="num col-west"></td>' +
+        '<td></td><td class="num col-west"></td>' +
         '<td class="col-west"></td><td class="num col-south col-divide"></td>' +
         '<td class="num col-soko"></td><td class="col-soko"></td><td></td><td></td>';
       tr.cells[0].textContent = p;
-      tr.cells[1].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
-      tr.cells[2].textContent = String(nWeek);
-      tr.cells[3].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
-      var nrInp = tr.cells[3].querySelector('input');
+      tr.cells[1].textContent = String(nWeek);
+      tr.cells[2].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
+      var nrInp = tr.cells[2].querySelector('input');
       var patShipCommitted = !!(s.nishiPatShipCommitted);
       nrInp.value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
       nrInp.setAttribute('data-p', p);
@@ -1866,8 +1764,8 @@
       btnPatNishi.title = '倉庫在庫から減算し、西タブで受取待ちにします。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
-      tr.cells[3].appendChild(document.createTextNode(' '));
-      tr.cells[3].appendChild(btnPatNishi);
+      tr.cells[2].appendChild(document.createTextNode(' '));
+      tr.cells[2].appendChild(btnPatNishi);
       btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 && !patShipCommitted ? '' : 'none';
       (function (product, nrInput, btnNishi) {
         function syncNishiReplenishDraft() {
@@ -1890,26 +1788,22 @@
         nrInput.addEventListener('blur', commitNishiReplenishDraft);
         nrInput.addEventListener('change', commitNishiReplenishDraft);
       })(p, nrInp, btnPatNishi);
-      tr.cells[4].textContent = String(mShown);
-      tr.cells[5].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
-      tr.cells[6].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
-      tr.cells[6].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
-      tr.cells[6].querySelector('input').setAttribute('data-p', p);
+      tr.cells[3].textContent = String(mShown);
+      tr.cells[4].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
+      tr.cells[5].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
+      tr.cells[5].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
+      tr.cells[5].querySelector('input').setAttribute('data-p', p);
       var btnPatSoko = document.createElement('button');
       btnPatSoko.type = 'button';
       btnPatSoko.className = 'btn';
       btnPatSoko.textContent = '倉庫補充受取';
       btnPatSoko.setAttribute('data-act', 'hon-pat-soko');
       btnPatSoko.setAttribute('data-p', p);
-      tr.cells[6].appendChild(document.createTextNode(' '));
-      tr.cells[6].appendChild(btnPatSoko);
+      tr.cells[5].appendChild(document.createTextNode(' '));
+      tr.cells[5].appendChild(btnPatSoko);
       btnPatSoko.style.display = (Number(s.sokoReplenish) || 0) > 0 ? '' : 'none';
-      tr.cells[7].textContent = '—';
-      tr.cells[8].innerHTML =
-        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;line-height:1.2">' +
-        '<span class="' + badgeClass(stW.k) + '">' + escapeText('西 ') + escapeText(stW.label) + '</span>' +
-        '<span class="' + badgeClass(stSk.k) + '">' + escapeText('倉 ') + escapeText(stSk.label) + '</span>' +
-        '</div>';
+      tr.cells[6].textContent = '—';
+      tr.cells[7].innerHTML = '<span class="' + badgeClass(stSk.k) + '">' + escapeText(stSk.label) + '</span>';
       ptb.appendChild(tr);
     });
 
@@ -2255,30 +2149,26 @@
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
-      var wk = patStockNishi(p, w);
-      var stN = statusFromNishiWest(p, w);
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td></td><td class="num"></td><td class="num"></td><td></td><td></td><td></td>';
+      tr.innerHTML = '<td></td><td class="num"></td><td></td><td></td>';
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = String(sumN[p] != null ? sumN[p] : 0);
-      tr.cells[2].textContent = wk != null && !isNaN(wk) ? String(Math.round(wk * 100) / 100) : '—';
       if ((Number(s.nishiReplenish) || 0) > 0) {
-        tr.cells[3].innerHTML = '配送中: ' + s.nishiReplenish + ' 個' +
+        tr.cells[2].innerHTML = '配送中: ' + s.nishiReplenish + ' 個' +
           '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
           '<span class="meta-line">予定: ' + s.nishiReplenish + '個</span> ' +
           '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
-        tr.cells[4].textContent = '—';
-      } else {
         tr.cells[3].textContent = '—';
+      } else {
+        tr.cells[2].textContent = '—';
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn btn-ghost';
         btn.textContent = '受取';
         btn.setAttribute('data-act', 'n-pat');
         btn.setAttribute('data-p', p);
-        tr.cells[4].appendChild(btn);
+        tr.cells[3].appendChild(btn);
       }
-      tr.cells[5].innerHTML = '<span class="' + badgeClass(stN.k) + '">' + stN.label + '</span>';
       ptb.appendChild(tr);
     });
 
@@ -2341,7 +2231,6 @@
     var q = Number(s.nishiReplenish) || 0;
     if (q <= 0) return;
     s.discrepancy = { expected: q, actual: q, diff: 0, date: nowStamp(), resolved: true };
-    s.nishiCurrent = (Number(s.nishiCurrent) || 0) + q;
     s.nishiReplenish = 0;
     s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
@@ -2370,7 +2259,6 @@
     } else {
       s.discrepancy = { expected: expected, actual: actual, diff: 0, date: nowStamp(), resolved: true };
     }
-    s.nishiCurrent = (Number(s.nishiCurrent) || 0) + actual;
     s.nishiReplenish = 0;
     s.nishiPatShipCommitted = false;
     db.lastSynced = nowStamp();
@@ -2565,7 +2453,6 @@
     db.settings.supplyProducts.forEach(function (p) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       db.supply[p].nishiConsumedSync = 0;
-      db.supply[p].nishiConsumedAppliedTotal = 0;
     });
     db.nishiConsumedResetAt = nowStamp();
     syncNishiConsumedResetMirror();
@@ -2653,7 +2540,7 @@
       alert('本部の操作者名を入力してください。');
       return Promise.resolve(false);
     }
-    if (!confirm('設定タブの「現在の在庫数」と閾値をDBに反映し、未確の補充・納品・南卸入力と差異記録をリセットします。\n週次西消費（nishiConsumedSync）や nishiCurrent／sokoCurrent の実数はこの操作では変えません（週次をゼロにする場合は西タブの「週次消費数リセット」）。\nGAS に送信しますか？')) return Promise.resolve(false);
+    if (!confirm('設定タブの「現在の在庫数」と閾値をDBに反映し、未確の補充・納品・南卸入力と差異記録をリセットします。\n週次西消費（nishiConsumedSync）や sokoCurrent の実数はこの操作では変えません（週次をゼロにする場合は西タブの「週次消費数リセット」）。\nGAS に送信しますか？')) return Promise.resolve(false);
     flushSettingsStockInputsToDb();
     resetAllDiscrepancyRecords();
     applyPatBaselineCore();
@@ -2794,9 +2681,6 @@
       if (sc === 'soko-p') {
         if (!db.supply[p]) db.supply[p] = defSupplyRow();
         db.supply[p].sokoCurrent = v;
-      } else if (sc === 'nishi-p') {
-        if (!db.supply[p]) db.supply[p] = defSupplyRow();
-        db.supply[p].nishiCurrent = v;
       } else if (sc === 'soko-d') {
         if (!db.daily[p]) db.daily[p] = defDailyRow();
         db.daily[p].sokoCurrent = v;
@@ -2847,9 +2731,6 @@
       if (sc === 'soko-p') {
         if (!db.supply[p]) db.supply[p] = defSupplyRow();
         db.supply[p].sokoCurrent = v2;
-      } else if (sc === 'nishi-p') {
-        if (!db.supply[p]) db.supply[p] = defSupplyRow();
-        db.supply[p].nishiCurrent = v2;
       } else if (sc === 'soko-d') {
         if (!db.daily[p]) db.daily[p] = defDailyRow();
         db.daily[p].sokoCurrent = v2;
@@ -2873,15 +2754,14 @@
     html += '<h2>施設名</h2><p><input type="text" id="s-fac2" class="s-f" style="min-width: 18rem" value="' + escapeAttr(db.settings.facilityName) + '" /></p>';
     html += '<p><button type="button" class="btn btn-lg" id="s-settings-sync">保存（GASへ送信・全端末反映）</button> <span id="s-settings-sync-msg" class="ok-msg"></span></p>';
     html += '<h2>在庫の見直し</h2>' +
-      '<p class="meta-line">各表の<strong>現在の在庫数</strong>はそのまま品目データの倉庫／西実数として保存されます。<strong>未確の入力</strong>や<strong>差異記録のみ</strong>まとめてリセットするときは下のボタンを押します（週次西消費や既に入力した実在庫の数値は書き換えません）。</p>' +
+      '<p class="meta-line">各表の<strong>現在の倉庫在庫数</strong>はそのまま品目データの倉庫実数として保存されます。<strong>未確の入力</strong>や<strong>差異記録のみ</strong>まとめてリセットするときは下のボタンを押します（週次西消費や既に入力した倉庫実在庫の数値は書き換えません）。</p>' +
       '<p style="margin:0.4rem 0 0.75rem 0"><button type="button" class="btn btn-lg" id="s-align-stock-display">入力クリア・差異リセット（GAS送信）</button> <span id="s-align-stock-msg" class="ok-msg"></span></p>';
     html += '<h2>西スタッフ管理</h2><p class="meta-line">発注時の操作者候補（GASに同期）</p><ul id="l-ws" class="slist"></ul><p><input id="new-ws" placeholder="スタッフ名" /> <button type="button" class="btn" id="add-ws">追加</button></p>';
     html += '<h2>パット類（品目・倉庫在庫） <button type="button" class="btn btn-ghost" id="imp2">介護記録から取得</button> <input id="new-p" placeholder="追加" /> <button type="button" class="btn" id="add-p">追加</button></h2>';
     html += '<div class="table-wrap" id="tb-merge-p"></div>';
     html += '<h2>日用品（品目・倉庫在庫） <input id="new-d" placeholder="追加" /> <button type="button" class="btn" id="add-d">追加</button></h2>';
     html += '<div class="table-wrap" id="tb-merge-d"></div>';
-    html += '<h2>西（パット類・西在庫）</h2><div class="table-wrap" id="tb-nishi-p"></div>';
-    html += '<p class="meta-line" style="margin-top:0.4rem">※本部の各確認ボタンで倉庫の現在在庫が増減します。設定の<strong>現在の在庫数</strong>で、倉庫側・西（パット）側それぞれの実数を直に編集できます（西タブの西在庫表示＝この実数。西消費の増加で減り、受取確認で増えます）。<strong>要補充・緊急</strong>はそれぞれの閾値と現在在庫で判定します。</p>';
+    html += '<p class="meta-line" style="margin-top:0.4rem">※西の在庫数は管理しません。本部の各確認ボタンで<strong>倉庫</strong>の現在在庫が増減します。<strong>要補充・緊急</strong>は倉庫在庫の閾値で判定します。</p>';
     html += '<h2>GAS 連携</h2>' +
       '<p><label for="s-gas-url">GAS URL（Webアプリ /exec）</label><br />' +
       '<input type="text" id="s-gas-url" autocomplete="off" style="width:100%;max-width:46rem" value="' + escapeAttr(gasUrl) + '" /></p>' +
@@ -2939,27 +2819,6 @@
         }).join('');
         wrap.innerHTML = thead + rows + '</tbody></table>';
       }
-      function fillWestNishiPatStock() {
-        var d = document.getElementById('tb-nishi-p');
-        if (!d) return;
-        var arr = db.settings.supplyProducts || [];
-        ensureProductRows();
-        var t = '<table><thead><tr><th>品目</th><th>現在の西在庫（実数）</th><th>要補充</th><th>緊急</th></tr></thead><tbody>';
-        if (!arr.length) {
-          d.innerHTML = t + '<tr><td colspan="4" class="meta-line" style="text-align:left">パット品目が未登録です。</td></tr></tbody></table>';
-          return;
-        }
-        arr.forEach(function (p) {
-          var o = (db.settings.nishiStock && db.settings.nishiStock[p]) || defStockRow();
-          var cur = (db.supply[p] && db.supply[p].nishiCurrent != null) ? Number(db.supply[p].nishiCurrent) || 0 : 0;
-          t += '<tr><td>' + escapeText(p) + '</td>' +
-            '<td><input class="s-cur" data-scope="nishi-p" data-p="' + escapeAttr(p) + '" type="number" step="any" value="' + cur + '"/></td>' +
-            '<td><input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="warnAt" type="number" value="' + o.warnAt + '"/></td>' +
-            '<td><input class="s-n" data-k="nishiStock" data-p="' + escapeAttr(p) + '" data-f="dangerAt" type="number" value="' + o.dangerAt + '"/></td></tr>';
-        });
-        t += '</tbody></table>';
-        d.innerHTML = t;
-      }
       function fillWestStaff() {
         var el = document.getElementById('l-ws');
         if (!el) return;
@@ -2973,7 +2832,6 @@
       }
       fillMergedPatWarehouse();
       fillMergedDailyWarehouse();
-      fillWestNishiPatStock();
       fillWestStaff();
     })();
     var fac = document.getElementById('s-fac2');
