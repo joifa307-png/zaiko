@@ -239,7 +239,7 @@
         <p class="consumed-period-msg" id="honbu-consumed-period" aria-live="polite"></p>
         <div class="section-title"><h2>パット類</h2></div>
         <p class="meta-line" style="margin:0.1rem 0 0.5rem; font-size:0.9rem; color: var(--muted); line-height:1.45; max-width: 52rem;">
-          西の在庫数は管理しません。<strong>西消費</strong>は介護記録からの週次集計、<strong>倉庫在庫</strong>は <strong>sokoCurrent</strong>です。<strong>南消費</strong>は GAS 同期の累計（<code>minamiConsumedSync</code>）表示です。
+          西の在庫数は管理しません。<strong>西消費</strong>は介護記録からの週次集計、<strong>西発注→納品確認→西の受取</strong>は日用品と同じ流れです。<strong>倉庫在庫</strong>は <strong>sokoCurrent</strong>、<strong>南消費</strong>は GAS 同期の累計表示です。
         </p>
         <div class="table-wrap">
           <table id="honbu-pat">
@@ -247,11 +247,13 @@
               <tr>
                 <th>品目</th>
                 <th class="col-west">西消費</th>
-                <th class="col-west">西補充(入力)</th>
+                <th class="col-west">西発注数</th>
+                <th class="col-west">発注日</th>
+                <th>納品数(入力)</th>
                 <th class="col-south col-divide">南消費</th>
                 <th class="col-soko">倉庫在庫</th>
                 <th class="col-soko">倉庫補充(入力)</th>
-                <th>確認</th>
+                <th>操作</th>
                 <th>状態</th>
               </tr>
             </thead>
@@ -314,8 +316,10 @@
               <tr>
                 <th>品目</th>
                 <th>西消費(自動)</th>
-                <th>西補充</th>
-                <th>受取</th>
+                <th>発注数</th>
+                <th>発注日</th>
+                <th>操作</th>
+                <th>状態</th>
               </tr>
             </thead>
             <tbody id="n-pat-tbody"></tbody>
@@ -371,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.34';
+  var ZAIKO_HTML_VERSION = '1.2.35';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -570,8 +574,13 @@
       nishiConsumedSync: 0,
       /** 南消費（累計、GAS同期値）。表示用。 */
       minamiConsumedSync: 0,
+      nishiOrder: 0,
+      nishiOrderDate: '',
+      nishiOrderAt: '',
+      nishiOrderBy: '',
+      /** 本部が入力する納品数（日用品の deliveryCount 相当）。確認後は西の配送中表示に使う */
       nishiReplenish: 0,
-      /** true の間は本部「西補充確認」済みで倉庫は減算済み。nishiReplenish は西の受取UI用に維持 */
+      /** true の間は本部「納品確認」済みで倉庫は減算済み（日用品の deliveryCommitted 相当） */
       nishiPatShipCommitted: false,
       sokoCurrent: 0,
       /** 介護記録(南)の累計のうち、既に sokoCurrent に減算反映した数量（null は未ベースライン） */
@@ -792,6 +801,10 @@
           if (!(Number(db.supply[p].nishiReplenish) || 0) && db.supply[p].nishiPatShipCommitted) {
             db.supply[p].nishiPatShipCommitted = false;
           }
+          if (db.supply[p].nishiOrder == null) db.supply[p].nishiOrder = 0;
+          if (db.supply[p].nishiOrderDate == null) db.supply[p].nishiOrderDate = '';
+          if (db.supply[p].nishiOrderAt == null) db.supply[p].nishiOrderAt = '';
+          if (db.supply[p].nishiOrderBy == null) db.supply[p].nishiOrderBy = '';
           if (db.supply[p].nishiConsumedSync == null) db.supply[p].nishiConsumedSync = 0;
           if (db.supply[p].sokoReplenish == null) db.supply[p].sokoReplenish = 0;
           if (!db.supply[p].discrepancy || typeof db.supply[p].discrepancy !== 'object') {
@@ -1634,6 +1647,12 @@
     var facilityName = (db.settings.facilityName != null ? String(db.settings.facilityName) : '').trim() || '在庫管理';
 
     var orderDate = '';
+    products.forEach(function (p) {
+      var s = db.supply[p];
+      if (s && s.nishiOrderDate && String(s.nishiOrderDate) > orderDate) {
+        orderDate = String(s.nishiOrderDate);
+      }
+    });
     dailyProds.forEach(function (p) {
       var d = db.daily[p];
       if (d && d.nishiOrderDate && String(d.nishiOrderDate) > orderDate) {
@@ -1646,12 +1665,13 @@
     products.forEach(function (p) {
       var s = db.supply[p];
       if (!s) return;
+      var qty = Number(s.nishiOrder) || 0;
       var consumed = getNishiWeekConsumed(p, wPrint);
-      if (consumed <= 0) return;
+      if (qty < 1 && consumed <= 0) return;
       patRows += '<tr>'
         + '<td>' + escapeText(p) + '</td>'
         + '<td style="text-align:center;">' + consumed + '</td>'
-        + '<td></td>'
+        + '<td style="text-align:center;">' + (qty > 0 ? qty : '') + '</td>'
         + '</tr>';
     });
 
@@ -1690,7 +1710,7 @@
     html += '<h2>パット類</h2>';
     if (patRows) {
       html += '<table>'
-        + '<thead><tr><th>品目</th><th>西消費</th><th>西補充</th></tr></thead>'
+        + '<thead><tr><th>品目</th><th>西消費</th><th>発注数</th></tr></thead>'
         + '<tbody>' + patRows + '</tbody>'
         + '</table>';
     } else {
@@ -1733,7 +1753,7 @@
       allN[p] = getNishiWeekConsumed(p, wN);
     });
 
-    db.settings.supplyProducts.forEach(function (p) {
+    db.settings.supplyProducts.forEach(function (p, pIdx) {
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
       var sko = patStockSoko(p);
@@ -1745,65 +1765,85 @@
       var stSk = statusFromSokoStock(p);
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td></td><td class="num col-west"></td>' +
-        '<td class="col-west"></td><td class="num col-south col-divide"></td>' +
+        '<td></td><td class="num col-west"></td><td class="num col-west"></td><td class="col-west"></td>' +
+        '<td class="num"></td><td class="num col-south col-divide"></td>' +
         '<td class="num col-soko"></td><td class="col-soko"></td><td></td><td></td>';
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = String(nWeek);
-      tr.cells[2].innerHTML = '<input type="number" min="0" step="any" class="h-nr" data-p="" style="width:4.5rem" />';
-      var nrInp = tr.cells[2].querySelector('input');
+      tr.cells[2].textContent = String(s.nishiOrder != null ? s.nishiOrder : 0);
+      tr.cells[3].textContent = formatNishiOrderLineHonbu(s);
+      tr.cells[4].innerHTML = '<input type="number" min="0" step="any" class="h-nr" id="honbu-nr-pat-' + pIdx + '" data-p="" style="width:4.5rem" />';
+      var nrInp = tr.cells[4].querySelector('input');
       var patShipCommitted = !!(s.nishiPatShipCommitted);
       nrInp.value = s.nishiReplenish != null && s.nishiReplenish !== '' ? s.nishiReplenish : '';
       nrInp.setAttribute('data-p', p);
       nrInp.disabled = patShipCommitted;
-      nrInp.title = patShipCommitted ? '西補充確認済み。西の受取確認まで数量は固定です。' : '';
+      nrInp.title = patShipCommitted ? '納品確認済み。西の受取確認まで数量は固定です。' : '';
       var btnPatNishi = document.createElement('button');
       btnPatNishi.type = 'button';
       btnPatNishi.className = 'btn btn-ghost';
-      btnPatNishi.textContent = '西補充確認';
+      btnPatNishi.textContent = '納品確認';
       btnPatNishi.title = '倉庫在庫から減算し、西タブで受取待ちにします。';
       btnPatNishi.setAttribute('data-act', 'hon-pat-nishi');
       btnPatNishi.setAttribute('data-p', p);
-      tr.cells[2].appendChild(document.createTextNode(' '));
-      tr.cells[2].appendChild(btnPatNishi);
-      btnPatNishi.style.display = (Number(s.nishiReplenish) || 0) > 0 && !patShipCommitted ? '' : 'none';
-      (function (product, nrInput, btnNishi) {
+      tr.cells[4].appendChild(document.createTextNode(' '));
+      tr.cells[4].appendChild(btnPatNishi);
+      var btnPatUnlock = document.createElement('button');
+      btnPatUnlock.type = 'button';
+      btnPatUnlock.className = 'btn btn-ghost';
+      btnPatUnlock.textContent = '修正';
+      btnPatUnlock.title = '納品確認を取り消し、倉庫在庫を戻して数量を再入力できます。';
+      btnPatUnlock.setAttribute('data-act', 'hon-pat-nishi-unlock');
+      btnPatUnlock.setAttribute('data-p', p);
+      tr.cells[4].appendChild(document.createTextNode(' '));
+      tr.cells[4].appendChild(btnPatUnlock);
+      var nr = Number(s.nishiReplenish) || 0;
+      btnPatNishi.style.display = (nr > 0 && !patShipCommitted) ? '' : 'none';
+      btnPatUnlock.style.display = (patShipCommitted && nr > 0) ? '' : 'none';
+      (function (product, nrInput, btnNishi, btnUnlock) {
         function syncNishiReplenishDraft() {
           if (!db.supply[product]) db.supply[product] = defSupplyRow();
           if (db.supply[product].nishiPatShipCommitted) return;
           syncHonbuPatNishiReplenishFromInp(nrInput);
-          var n = Number(db.supply[product].nishiReplenish) || 0;
-          btnNishi.style.display = (n > 0 && !db.supply[product].nishiPatShipCommitted) ? '' : 'none';
+        }
+        function refreshDeliveryBtns() {
+          var row = db.supply[product] || {};
+          var n = Number(row.nishiReplenish) || 0;
+          var committed = !!row.nishiPatShipCommitted;
+          btnNishi.style.display = (n > 0 && !committed) ? '' : 'none';
+          btnUnlock.style.display = (committed && n > 0) ? '' : 'none';
         }
         nrInput.addEventListener('input', function () {
           syncNishiReplenishDraft();
+          refreshDeliveryBtns();
           saveDb();
         });
         function commitNishiReplenishDraft() {
           syncNishiReplenishDraft();
+          refreshDeliveryBtns();
           saveDb();
           renderNishi();
           scheduleOperationalSync('honbu-nishi-replenish');
         }
         nrInput.addEventListener('blur', commitNishiReplenishDraft);
         nrInput.addEventListener('change', commitNishiReplenishDraft);
-      })(p, nrInp, btnPatNishi);
-      tr.cells[3].textContent = String(mShown);
-      tr.cells[4].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
-      tr.cells[5].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
-      tr.cells[5].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
-      tr.cells[5].querySelector('input').setAttribute('data-p', p);
+      })(p, nrInp, btnPatNishi, btnPatUnlock);
+      tr.cells[5].textContent = String(mShown);
+      tr.cells[6].textContent = sko != null && !isNaN(sko) ? String(Math.round(sko * 100) / 100) : '—';
+      tr.cells[7].innerHTML = '<input type="number" min="0" step="any" class="h-sr" data-p="" style="width:4.5rem" />';
+      tr.cells[7].querySelector('input').value = s.sokoReplenish != null && s.sokoReplenish !== '' ? s.sokoReplenish : '';
+      tr.cells[7].querySelector('input').setAttribute('data-p', p);
       var btnPatSoko = document.createElement('button');
       btnPatSoko.type = 'button';
       btnPatSoko.className = 'btn';
       btnPatSoko.textContent = '倉庫補充受取';
       btnPatSoko.setAttribute('data-act', 'hon-pat-soko');
       btnPatSoko.setAttribute('data-p', p);
-      tr.cells[5].appendChild(document.createTextNode(' '));
-      tr.cells[5].appendChild(btnPatSoko);
+      tr.cells[7].appendChild(document.createTextNode(' '));
+      tr.cells[7].appendChild(btnPatSoko);
       btnPatSoko.style.display = (Number(s.sokoReplenish) || 0) > 0 ? '' : 'none';
-      tr.cells[6].textContent = '—';
-      tr.cells[7].innerHTML = '<span class="' + badgeClass(stSk.k) + '">' + escapeText(stSk.label) + '</span>';
+      tr.cells[8].textContent = '—';
+      tr.cells[9].innerHTML = '<span class="' + badgeClass(stSk.k) + '">' + escapeText(stSk.label) + '</span>';
       ptb.appendChild(tr);
     });
 
@@ -1960,8 +2000,8 @@
       s.nishiReplenish = !isNaN(v) ? v : (Number(s.nishiReplenish) || 0);
     }
     var a = Number(s.nishiReplenish) || 0;
-    if (a <= 0) { alert('西補充（入力）に数量を入れてから押してください。'); return; }
-    if (s.nishiPatShipCommitted) { alert('既にこの品目は西補充確認済みです。西の受取確認までお待ちください。'); return; }
+    if (a <= 0) { alert('納品数（入力）に数量を入れてから押してください。'); return; }
+    if (s.nishiPatShipCommitted) { alert('既にこの品目は納品確認済みです。西側の受取確認が終わるまで待ってください。'); return; }
     // 倉庫在庫のみ減算。nishiReplenish は西タブの「配送中／受取数入力」用に維持（日用品の納品確認と同型）
     s.sokoCurrent = (Number(s.sokoCurrent) || 0) - a;
     s.nishiPatShipCommitted = true;
@@ -1973,7 +2013,38 @@
         renderHonbu();
         renderNishi();
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = '西補充を倉庫から出庫しGASに送信しました（西の受取待ち）。';
+        if (info) info.textContent = '納品を反映しGASに送信しました（パット類）。';
+      });
+  }
+
+  /** パット類・納品確認の取り消し：倉庫減算を戻し、納品数を再入力可能にする */
+  function doHonbuPatNishiUnlock(p) {
+    var sen = getHonbuSender();
+    if (!sen) { alert('本部の操作者名を入力してください。'); return; }
+    ensureProductRows();
+    if (!db.supply[p]) db.supply[p] = defSupplyRow();
+    var s = db.supply[p];
+    if (!s.nishiPatShipCommitted) return;
+    var prev = Number(s.nishiReplenish) || 0;
+    if (prev <= 0) {
+      s.nishiPatShipCommitted = false;
+      saveDb();
+      renderHonbu();
+      renderNishi();
+      return;
+    }
+    if (!confirm('「' + p + '」の納品数（' + prev + '）を修正します。\n倉庫在庫に ' + prev + ' を戻し、入力を再開します。よろしいですか？')) return;
+    s.sokoCurrent = (Number(s.sokoCurrent) || 0) + prev;
+    s.nishiPatShipCommitted = false;
+    db.lastSynced = nowStamp();
+    db.lastSyncedBy = sen;
+    saveDb();
+    return postGAS({ sender: sen })
+      .then(function () {
+        renderHonbu();
+        renderNishi();
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = '納品数を修正可能にしました（パット）: ' + p;
       });
   }
 
@@ -2150,24 +2221,39 @@
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td></td><td class="num"></td><td></td><td></td>';
+      tr.innerHTML = '<td></td><td class="num"></td><td></td><td class="num"></td><td></td><td></td>';
       tr.cells[0].textContent = p;
       tr.cells[1].textContent = String(sumN[p] != null ? sumN[p] : 0);
-      if ((Number(s.nishiReplenish) || 0) > 0) {
-        tr.cells[2].innerHTML = '配送中: ' + s.nishiReplenish + ' 個' +
-          '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
-          '<span class="meta-line">予定: ' + s.nishiReplenish + '個</span> ' +
-          '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
-        tr.cells[3].textContent = '—';
-      } else {
-        tr.cells[2].textContent = '—';
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn btn-ghost';
-        btn.textContent = '受取';
-        btn.setAttribute('data-act', 'n-pat');
-        btn.setAttribute('data-p', p);
-        tr.cells[3].appendChild(btn);
+      var sel = document.createElement('select');
+      sel.setAttribute('data-p', p);
+      sel.setAttribute('data-kind', 'supply');
+      for (var o = 0; o <= 100; o++) {
+        var op = document.createElement('option');
+        op.value = o;
+        op.textContent = o;
+        if (Number(s.nishiOrder) === o) op.selected = true;
+        sel.appendChild(op);
+      }
+      tr.cells[2].appendChild(sel);
+      tr.cells[3].textContent = formatNishiOrderLineNishi(s);
+      tr.cells[4].innerHTML = '';
+      var b1 = document.createElement('button');
+      b1.className = 'btn';
+      b1.textContent = '確定';
+      b1.setAttribute('data-act', 'n-pat-ord');
+      b1.setAttribute('data-p', p);
+      tr.cells[4].appendChild(b1);
+      {
+        var dc = Number(s.nishiReplenish) || 0;
+        var no = Number(s.nishiOrder) || 0;
+        if (dc > 0) {
+          tr.cells[5].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>' +
+            '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
+            '<span class="meta-line">予定: ' + dc + '個</span> ' +
+            '<button type="button" class="btn btn-ghost" data-act="n-pat-recv" data-p="' + escapeAttr(p) + '">受取確認</button></div>';
+        } else if (no > 0) {
+          tr.cells[5].innerHTML = '<span class="badge badge-ok">発注済</span>';
+        } else { tr.cells[5].textContent = '—'; }
       }
       ptb.appendChild(tr);
     });
@@ -2221,25 +2307,28 @@
     updateMessageAreas();
   }
 
-  /** 予定どおりすべて受領するときの省略操作（入力欄なし。本部で未確の西補充入力が同期されているとき） */
-  function doNishiPatConfirm(p) {
+  /** パット類の発注数確定（日用品の doNishiOrder と同型。一括送信は別ボタン） */
+  function doNishiPatOrderQty(p, qty) {
     var op = getSelectedNishiOperator();
     if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
-    var beforeShip = countNishiShippingItems();
-    if (!db.supply[p]) return;
-    var s = db.supply[p];
-    var q = Number(s.nishiReplenish) || 0;
-    if (q <= 0) return;
-    s.discrepancy = { expected: q, actual: q, diff: 0, date: nowStamp(), resolved: true };
-    s.nishiReplenish = 0;
-    s.nishiPatShipCommitted = false;
-    db.lastSynced = nowStamp();
-    db.lastSyncedBy = op;
+    ensureProductRows();
+    if (!db.supply[p]) db.supply[p] = defSupplyRow();
+    var n = parseInt(qty, 10) || 0;
+    db.supply[p].nishiOrder = n;
+    if (n > 0) {
+      db.supply[p].nishiOrderDate = ymd(new Date());
+      db.supply[p].nishiOrderAt = nowStamp();
+      db.supply[p].nishiOrderBy = op;
+      try { localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
+    } else {
+      db.supply[p].nishiOrderDate = '';
+      db.supply[p].nishiOrderAt = '';
+      db.supply[p].nishiOrderBy = '';
+    }
     saveDb();
-    return postGASFromNishi(op).then(function () {
-      renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'GAS 送信（西・パット受取）';
-      maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
-    });
+    renderNishi();
+    renderHonbu();
+    document.getElementById('honbu-info').textContent = '数量を確定しました（一括送信ボタンで発注してください）';
   }
 
   function doNishiPatReceiveConfirm(p) {
@@ -2261,27 +2350,16 @@
     }
     s.nishiReplenish = 0;
     s.nishiPatShipCommitted = false;
+    s.nishiOrder = 0;
+    s.nishiOrderDate = '';
+    s.nishiOrderAt = '';
+    s.nishiOrderBy = '';
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
     return postGASFromNishi(op).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
-    });
-  }
-
-  function doNishiPatOrder(p) {
-    var op = getSelectedNishiOperator();
-    if (!op) { alert('西スタッフをプルダウンで選択してください。'); return; }
-    ensureProductRows();
-    if (!db.supply[p]) db.supply[p] = defSupplyRow();
-    db.lastSynced = nowStamp();
-    db.lastSyncedBy = op;
-    saveDb();
-    return postGASFromNishi(op).then(function () {
-      renderNishi();
-      renderHonbu();
-      document.getElementById('honbu-info').textContent = '発注しました';
     });
   }
 
@@ -2374,9 +2452,34 @@
     ensureProductRows();
     var changed = [];
     var today = ymd(new Date());
+    (db.settings.supplyProducts || []).forEach(function (p) {
+      if (!db.supply[p]) db.supply[p] = defSupplyRow();
+      var sel = null;
+      var sels = document.querySelectorAll('#n-pat-tbody select[data-kind="supply"][data-p]');
+      for (var i = 0; i < sels.length; i++) {
+        if (sels[i].getAttribute('data-p') === p) { sel = sels[i]; break; }
+      }
+      if (!sel) return;
+      var qty = parseInt(sel.value, 10) || 0;
+      db.supply[p].nishiOrder = qty;
+      if (qty > 0) {
+        db.supply[p].nishiOrderDate = today;
+        db.supply[p].nishiOrderAt = nowStamp();
+        db.supply[p].nishiOrderBy = op;
+        changed.push({ product: p, qty: qty, date: db.supply[p].nishiOrderDate });
+      } else {
+        db.supply[p].nishiOrderDate = '';
+        db.supply[p].nishiOrderAt = '';
+        db.supply[p].nishiOrderBy = '';
+      }
+    });
     db.settings.dailyProducts.forEach(function (p) {
       if (!db.daily[p]) db.daily[p] = defDailyRow();
-      var sel = document.querySelector('#n-daily-tbody select[data-p="' + p + '"]');
+      var sel = null;
+      var sels = document.querySelectorAll('#n-daily-tbody select[data-p]');
+      for (var j = 0; j < sels.length; j++) {
+        if (sels[j].getAttribute('data-p') === p) { sel = sels[j]; break; }
+      }
       if (!sel) return;
       var qty = parseInt(sel.value, 10) || 0;
       db.daily[p].nishiOrder = qty;
@@ -2497,7 +2600,7 @@
     });
   }
 
-  /** パット類：未確の補充入力と差異のみクリア */
+  /** パット類：未確の納品・補充入力・発注表示と差異のみクリア */
   function applyPatBaselineCore() {
     ensureProductRows();
     var products = db.settings.supplyProducts || [];
@@ -2506,7 +2609,12 @@
       if (!db.supply[p]) db.supply[p] = defSupplyRow();
       var s = db.supply[p];
       s.nishiReplenish = 0;
+      s.nishiPatShipCommitted = false;
       s.sokoReplenish = 0;
+      s.nishiOrder = 0;
+      s.nishiOrderDate = '';
+      s.nishiOrderAt = '';
+      s.nishiOrderBy = '';
       s.discrepancy = defDiscrepancyResolved();
     });
   }
@@ -2573,6 +2681,7 @@
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!t) return;
     if (t.getAttribute('data-act') === 'hon-pat-nishi') { doHonbuPatNishiConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'hon-pat-nishi-unlock') { doHonbuPatNishiUnlock(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-pat-soko') { doHonbuPatSokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-soko') { doHonbuDailySokoConfirm(t.getAttribute('data-p')); }
     if (t.getAttribute('data-act') === 'hon-daily-delivery') { doHonbuDailyDeliveryConfirm(t.getAttribute('data-p')); }
@@ -2592,9 +2701,25 @@
     console.log('確認ボタン押下');
     var t = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!t) return;
-    if (t.getAttribute('data-act') === 'n-pat') { doNishiPatConfirm(t.getAttribute('data-p')); }
+    if (t.getAttribute('data-act') === 'n-pat-ord') {
+      var pp = t.getAttribute('data-p');
+      var selPat = null;
+      var selList = document.querySelectorAll('#n-pat-tbody select[data-kind="supply"][data-p]');
+      for (var si = 0; si < selList.length; si++) {
+        if (selList[si].getAttribute('data-p') === pp) { selPat = selList[si]; break; }
+      }
+      doNishiPatOrderQty(pp, selPat ? selPat.value : 0);
+    }
     if (t.getAttribute('data-act') === 'n-pat-recv') { doNishiPatReceiveConfirm(t.getAttribute('data-p')); }
-    if (t.getAttribute('data-act') === 'n-ord') { var p0 = t.getAttribute('data-p'); var s0 = document.querySelector('select[data-p="' + p0 + '"]'); doNishiOrder(p0, s0 ? s0.value : 0); }
+    if (t.getAttribute('data-act') === 'n-ord') {
+      var p0 = t.getAttribute('data-p');
+      var s0 = null;
+      var dailySels = document.querySelectorAll('#n-daily-tbody select[data-p]');
+      for (var di = 0; di < dailySels.length; di++) {
+        if (dailySels[di].getAttribute('data-p') === p0) { s0 = dailySels[di]; break; }
+      }
+      doNishiOrder(p0, s0 ? s0.value : 0);
+    }
     if (t.getAttribute('data-act') === 'n-daily-recv') { doNishiDailyReceiveConfirm(t.getAttribute('data-p')); }
   });
 
