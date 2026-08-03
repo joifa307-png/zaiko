@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.35';
+  var ZAIKO_HTML_VERSION = '1.2.36';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1225,6 +1225,7 @@
         : { from: '', text: '', sentAt: '' }
     };
     if (opts && opts.isBulkOrder) payload.isBulkOrder = true;
+    if (opts && Array.isArray(opts.bulkOrderItems)) payload.bulkOrderItems = opts.bulkOrderItems;
     syncNishiConsumedResetMirror();
     if (includeSettings) payload.settings = db.settings;
     var toilet = payload.daily && payload.daily['トイレットペーパー'];
@@ -1232,6 +1233,15 @@
       nishiOrder: toilet.nishiOrder,
       nishiOrderDate: toilet.nishiOrderDate
     } : 'なし');
+    if (opts && opts.isBulkOrder) {
+      var supplyOrders = [];
+      Object.keys(supplyForSend).forEach(function (name) {
+        var q = Number(supplyForSend[name] && supplyForSend[name].nishiOrder) || 0;
+        if (q >= 1) supplyOrders.push(name + ':' + q);
+      });
+      gasLog('POST bulk supply nishiOrder', supplyOrders);
+      gasLog('POST bulkOrderItems', opts.bulkOrderItems || []);
+    }
     return payload;
   }
 
@@ -2466,7 +2476,7 @@
         db.supply[p].nishiOrderDate = today;
         db.supply[p].nishiOrderAt = nowStamp();
         db.supply[p].nishiOrderBy = op;
-        changed.push({ product: p, qty: qty, date: db.supply[p].nishiOrderDate });
+        changed.push({ product: p, qty: qty, date: db.supply[p].nishiOrderDate, kind: 'supply' });
       } else {
         db.supply[p].nishiOrderDate = '';
         db.supply[p].nishiOrderAt = '';
@@ -2487,7 +2497,7 @@
         db.daily[p].nishiOrderDate = today;
         db.daily[p].nishiOrderAt = nowStamp();
         db.daily[p].nishiOrderBy = op;
-        changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate });
+        changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate, kind: 'daily' });
       } else {
         db.daily[p].nishiOrderDate = '';
         db.daily[p].nishiOrderAt = '';
@@ -2506,16 +2516,18 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGASFromNishi(op, { isBulkOrder: true }).then(function (text) {
+    return postGASFromNishi(op, { isBulkOrder: true, bulkOrderItems: changed }).then(function (text) {
       var lw = extractLwNotifyFromPostText(text);
       var sum = lw ? formatLwNotifySummary(lw) : '';
       if (lw) {
         console.log('LW通知結果', lw);
+        if (lw.orderPreview) console.log('LW本文プレビュー', lw.orderPreview);
         gasLog('LW通知結果', lw);
       }
       var nInfo = document.getElementById('nishi-import-info');
       if (nInfo) {
-        nInfo.textContent = sum ? ('発注を送信しました。LW: ' + sum) : '発注を送信しました（LW結果なし＝GAS未更新の可能性）';
+        var preview = (lw && lw.orderPreview) ? (' / 本文に' + (String(lw.orderPreview).indexOf('■パット類') >= 0 ? 'パットあり' : 'パットなし')) : '';
+        nInfo.textContent = sum ? ('発注を送信しました。LW: ' + sum + preview) : '発注を送信しました（LW結果なし＝GAS未更新の可能性）';
       }
       var info = document.getElementById('honbu-info');
       if (info && sum) info.textContent = '発注を送信しました。LW: ' + sum;
