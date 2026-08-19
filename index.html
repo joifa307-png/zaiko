@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.45';
+  var ZAIKO_HTML_VERSION = '1.2.46';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -2968,10 +2968,12 @@
         renderHonbu();
         renderNishi();
         renderSettingsFull();
+        var gasVerGet = extractGasVersionFromPostText(t);
         var info = document.getElementById('honbu-info');
-        if (info) info.textContent = 'GAS から取り込み: ' + nowStamp();
+        if (info) info.textContent = 'GAS から取り込み: ' + nowStamp() + (gasVerGet ? ' (GAS v' + gasVerGet + ')' : ' (GAS版不明)');
         var nishiImport = document.getElementById('nishi-import-info');
-        if (nishiImport) nishiImport.textContent = 'GASからの取込：' + nowStamp();
+        if (nishiImport) nishiImport.textContent = 'GASからの取込：' + nowStamp() + (gasVerGet ? ' (GAS v' + gasVerGet + ')' : ' (GAS版不明)')
+          + '\nGET応答先頭: ' + previewGasResponse(t);
         syncBtns.forEach(function (b) {
           b.disabled = false;
           b.textContent = '取得済 ✓';
