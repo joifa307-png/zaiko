@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.44';
+  var ZAIKO_HTML_VERSION = '1.2.45';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1501,26 +1501,24 @@
 
   /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
   function postNishiBulkOrderNotify(op, items) {
-    var payload = {
-      token: token,
-      action: 'nishi_bulk_order',
-      isBulkOrder: true,
-      sender: op,
-      sentAt: nowStamp(),
-      bulkOrderItems: items || []
-    };
-    gasLog('POST 発注通知のみ', payload);
-    return fetch(gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
+    var qs = '?token=' + encodeURIComponent(token)
+      + '&action=nishi_bulk_order'
+      + '&sender=' + encodeURIComponent(op || '')
+      + '&sentAt=' + encodeURIComponent(nowStamp())
+      + '&items=' + encodeURIComponent(JSON.stringify(items || []))
+      + '&ts=' + Date.now();
+    var url = gasUrl + qs;
+    gasLog('GET 発注通知', { len: url.length, items: items || [] });
+    return fetch(url, {
+      method: 'GET',
+      mode: 'cors',
       redirect: 'follow',
-      mode: 'cors'
+      cache: 'no-store'
     }).then(function (r) {
       return r.text().then(function (text) { return { ok: r.ok, status: r.status, text: text }; });
     }).then(function (x) {
-      gasLog('POST 発注通知応答 ' + x.status, x.text);
-      if (!x.ok) throw new Error('通知POST HTTP ' + x.status);
+      gasLog('GET 発注通知応答 ' + x.status, x.text);
+      if (!x.ok) throw new Error('通知GET HTTP ' + x.status);
       return x.text;
     });
   }
@@ -1538,6 +1536,7 @@
     if (!lw || typeof lw !== 'object') return '';
     if (lw.skipped === 'not_bulk_order') return '（LW: 一括発注以外のため通知なし）';
     if (lw.skipped === 'no_order_lines') return '（LW: 発注行が組み立てられず通知スキップ）';
+    if (lw.skipped === 'duplicate') return '（LW: 直前に送信済み）';
     var parts = [];
     if (lw.honbuStatus) parts.push('本部=' + lw.honbuStatus);
     if (lw.honbuPing && lw.honbuPing.status != null) {
@@ -2667,7 +2666,14 @@
       var gasVer = extractGasVersionFromPostText(notifyText);
       setAppVersionLabel(gasVer);
       if (nInfo) nInfo.textContent = '通知完了。在庫データを保存中…';
-      return postGASFromNishi(op).then(function () {
+      return postGASFromNishi(op, { isBulkOrder: true, bulkOrderItems: changed, skipSuccessAlert: true }).then(function (saveText) {
+        var lw2 = extractLwNotifyFromPostText(saveText);
+        if ((!lw || lw.skipped) && lw2 && !lw2.skipped) {
+          lw = lw2;
+          sum = formatLwNotifySummary(lw);
+        }
+        if (!gasVer) gasVer = extractGasVersionFromPostText(saveText);
+        setAppVersionLabel(gasVer);
         if (nInfo) {
           nInfo.textContent = '送信完了 GAS ' + (gasVer || '不明') + ' / LW: ' + (sum || 'なし');
         }
@@ -2690,8 +2696,25 @@
         );
       });
     }).catch(function (e) {
-      if (nInfo) nInfo.textContent = '発注送信エラー: ' + String(e);
-      alert('発注の送信に失敗しました。\n' + String(e) + '\n\nこの場合、本部への通知は送られていません。');
+      if (nInfo) nInfo.textContent = '通知GET失敗。保存POSTで再送します… ' + String(e);
+      return postGASFromNishi(op, { isBulkOrder: true, bulkOrderItems: changed, skipSuccessAlert: true }).then(function (saveText) {
+        var lwSave = extractLwNotifyFromPostText(saveText);
+        var sumSave = lwSave ? formatLwNotifySummary(lwSave) : '';
+        var gasVerSave = extractGasVersionFromPostText(saveText);
+        setAppVersionLabel(gasVerSave);
+        if (nInfo) nInfo.textContent = '送信完了 GAS ' + (gasVerSave || '不明') + ' / LW: ' + (sumSave || 'なし');
+        alert(
+          '送信完了（通知GET失敗のため保存POSTで送信）\n'
+          + 'GAS版: ' + (gasVerSave || '不明') + '\n'
+          + 'LW結果: ' + (sumSave || 'なし') + '\n'
+          + '応答先頭: ' + previewGasResponse(saveText)
+        );
+        renderNishi();
+        renderHonbu();
+      }).catch(function (e2) {
+        if (nInfo) nInfo.textContent = '発注送信エラー: ' + String(e2);
+        alert('発注の送信に失敗しました。\n' + String(e) + '\n' + String(e2));
+      });
     });
   }
 
