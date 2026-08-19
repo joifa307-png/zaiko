@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.36';
+  var ZAIKO_HTML_VERSION = '1.2.37';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1023,7 +1023,10 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS({ skipSuccessAlert: true, sender: sen })
+    var discPost = (which === 'nishi')
+      ? postGASFromNishi(sen, { skipSuccessAlert: true })
+      : postGAS({ skipSuccessAlert: true, sender: sen });
+    return discPost
       .then(function () {
         updateDiscrepancyBanners();
         renderHonbu();
@@ -1149,7 +1152,10 @@
     db.message = { from: fromLabel, text: text, sentAt: nowStamp() };
     if (inp) inp.value = '';
     saveDb();
-    return postGAS({ skipSuccessAlert: true, sender: sen })
+    var msgPost = (fromLabel === '西')
+      ? postGASFromNishi(sen, { skipSuccessAlert: true })
+      : postGAS({ skipSuccessAlert: true, sender: sen });
+    return msgPost
       .then(function () {
         updateMessageAreas();
         var info = document.getElementById('honbu-info');
@@ -1197,7 +1203,28 @@
         delete rowCopy.nishiConsumedSync;
         delete rowCopy.nishConsumedSync; // 互換性のため
       }
-      supplyForSend[p] = rowCopy;
+      // 西発注と本部納品が互いの古い0で上書きされないよう、担当外フィールドは送らない
+      if (opts && opts.fromNishi && !opts.nishiReceive) {
+        delete rowCopy.nishiReplenish;
+        delete rowCopy.nishiPatShipCommitted;
+        delete rowCopy.sokoCurrent;
+        delete rowCopy.sokoReplenish;
+        delete rowCopy.minamiConsumedAppliedTotal;
+        delete rowCopy.minamiDisplayBaseline;
+        // 未操作の0は送らない（既存の発注を消さない）。明示クリアは nishiOrderAt 付き
+        if (!(Number(rowCopy.nishiOrder) > 0) && !(rowCopy.nishiOrderAt && String(rowCopy.nishiOrderAt).trim())) {
+          delete rowCopy.nishiOrder;
+          delete rowCopy.nishiOrderDate;
+          delete rowCopy.nishiOrderAt;
+          delete rowCopy.nishiOrderBy;
+        }
+      }
+      if ((!(opts && opts.fromNishi) || (opts && opts.omitNishiOrder)) && !(opts && opts.includeNishiOrder)) {
+        delete rowCopy.nishiOrder;
+        delete rowCopy.nishiOrderDate;
+        delete rowCopy.nishiOrderAt;
+        delete rowCopy.nishiOrderBy;
+      }
     });
 
     var dailyForSend = {};
@@ -1208,6 +1235,25 @@
       var rowCopy = {};
       Object.keys(row).forEach(function (f) { rowCopy[f] = row[f]; });
       stripLegacyDailyTotals(rowCopy);
+      if (opts && opts.fromNishi && !opts.nishiReceive) {
+        delete rowCopy.deliveryCount;
+        delete rowCopy.deliveryCommitted;
+        delete rowCopy.sokoCurrent;
+        delete rowCopy.sokoReplenish;
+        delete rowCopy.minamiIssued;
+        if (!(Number(rowCopy.nishiOrder) > 0) && !(rowCopy.nishiOrderAt && String(rowCopy.nishiOrderAt).trim())) {
+          delete rowCopy.nishiOrder;
+          delete rowCopy.nishiOrderDate;
+          delete rowCopy.nishiOrderAt;
+          delete rowCopy.nishiOrderBy;
+        }
+      }
+      if ((!(opts && opts.fromNishi) || (opts && opts.omitNishiOrder)) && !(opts && opts.includeNishiOrder)) {
+        delete rowCopy.nishiOrder;
+        delete rowCopy.nishiOrderDate;
+        delete rowCopy.nishiOrderAt;
+        delete rowCopy.nishiOrderBy;
+      }
       dailyForSend[p] = rowCopy;
     });
 
@@ -1355,9 +1401,13 @@
         var row = d.supply[p];
         if (!row || typeof row !== 'object' || Array.isArray(row)) return;
         var skipNishiReplenish = isHonbuPatNishiReplenishBeingEdited(p);
+        var localAt = db.supply[p].nishiOrderAt != null ? String(db.supply[p].nishiOrderAt).trim() : '';
+        var incomingAt = row.nishiOrderAt != null ? String(row.nishiOrderAt).trim() : '';
+        var keepLocalOrder = !!(localAt && (!incomingAt || localAt > incomingAt));
         Object.keys(row).forEach(function (f) {
           if (skipNishiReplenish && f === 'nishiReplenish') return;
           if (f === 'nishiCurrent' || f === 'nishiConsumedAppliedTotal') return;
+          if (keepLocalOrder && (f === 'nishiOrder' || f === 'nishiOrderDate' || f === 'nishiOrderAt' || f === 'nishiOrderBy')) return;
           db.supply[p][f] = row[f];
         });
         // nishiConsumedSync はGASから返ってこない場合は既存値を維持
@@ -1370,8 +1420,12 @@
         var row = d.daily[p];
         if (!row || typeof row !== 'object' || Array.isArray(row)) return;
         var skipDeliveryDraft = isHonbuDailyDeliveryBeingEdited(p);
+        var localDailyAt = db.daily[p].nishiOrderAt != null ? String(db.daily[p].nishiOrderAt).trim() : '';
+        var incomingDailyAt = row.nishiOrderAt != null ? String(row.nishiOrderAt).trim() : '';
+        var keepLocalDailyOrder = !!(localDailyAt && (!incomingDailyAt || localDailyAt > incomingDailyAt));
         Object.keys(row).forEach(function (f) {
           if (skipDeliveryDraft && (f === 'deliveryCount' || f === 'deliveryCommitted')) return;
+          if (keepLocalDailyOrder && (f === 'nishiOrder' || f === 'nishiOrderDate' || f === 'nishiOrderAt' || f === 'nishiOrderBy')) return;
           db.daily[p][f] = row[f];
         });
       });
@@ -1436,7 +1490,7 @@
 
   /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
   function postGASFromNishi(op, extra) {
-    var base = { sender: op, skipApplySnapshotFromPost: true };
+    var base = { sender: op, skipApplySnapshotFromPost: true, fromNishi: true };
     if (extra && typeof extra === 'object') {
       Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
     }
@@ -2256,7 +2310,7 @@
       {
         var dc = Number(s.nishiReplenish) || 0;
         var no = Number(s.nishiOrder) || 0;
-        if (dc > 0) {
+        if (dc > 0 && s.nishiPatShipCommitted) {
           tr.cells[5].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>' +
             '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-supply" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
             '<span class="meta-line">予定: ' + dc + '個</span> ' +
@@ -2295,7 +2349,7 @@
       {
         var dc = Number(d0.deliveryCount) || 0;
         var no = Number(d0.nishiOrder) || 0;
-        if (dc > 0) {
+        if (dc > 0 && d0.deliveryCommitted) {
           tr2.cells[4].innerHTML = '<span class="' + badgeClass('ship') + '">配送中</span>' +
             '<div style="margin-top:4px"><input type="number" min="0" step="any" class="n-recv-daily" data-p="' + escapeAttr(p) + '" style="width:4.5rem" placeholder="受取数" /> ' +
             '<span class="meta-line">予定: ' + dc + '個</span> ' +
@@ -2332,8 +2386,8 @@
       try { localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
     } else {
       db.supply[p].nishiOrderDate = '';
-      db.supply[p].nishiOrderAt = '';
-      db.supply[p].nishiOrderBy = '';
+      db.supply[p].nishiOrderAt = nowStamp();
+      db.supply[p].nishiOrderBy = op;
     }
     saveDb();
     renderNishi();
@@ -2348,7 +2402,10 @@
     if (!db.supply[p]) return;
     var s = db.supply[p];
     var expected = Number(s.nishiReplenish) || 0;
-    if (expected <= 0) return;
+    if (expected <= 0 || !s.nishiPatShipCommitted) {
+      alert('本部の納品確認がまだ届いていません。少し待って「最新データを取得」してから、もう一度受取確認してください。');
+      return;
+    }
     var inp = findPatTbodyInputByProduct('n-pat-tbody', 'n-recv-supply', p);
     var actualRaw = inp && inp.value !== '' ? parseFloat(inp.value) : NaN;
     var actual = !isNaN(actualRaw) ? actualRaw : expected;
@@ -2362,12 +2419,12 @@
     s.nishiPatShipCommitted = false;
     s.nishiOrder = 0;
     s.nishiOrderDate = '';
-    s.nishiOrderAt = '';
-    s.nishiOrderBy = '';
+    s.nishiOrderAt = nowStamp();
+    s.nishiOrderBy = op;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGASFromNishi(op).then(function () {
+    return postGASFromNishi(op, { nishiReceive: true }).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = 'パット類の受取を反映しました';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
     });
@@ -2386,8 +2443,8 @@
       try { localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
     } else {
       db.daily[p].nishiOrderDate = '';
-      db.daily[p].nishiOrderAt = '';
-      db.daily[p].nishiOrderBy = '';
+      db.daily[p].nishiOrderAt = nowStamp();
+      db.daily[p].nishiOrderBy = op;
     }
     if (p === 'トイレットペーパー') {
       console.log('doNishiOrder更新後 トイレットペーパー:', { nishiOrder: db.daily[p].nishiOrder, nishiOrderDate: db.daily[p].nishiOrderDate, nishiOrderBy: db.daily[p].nishiOrderBy });
@@ -2404,8 +2461,8 @@
     if (db.daily[p]) {
       db.daily[p].nishiOrder = 0;
       db.daily[p].nishiOrderDate = '';
-      db.daily[p].nishiOrderAt = '';
-      db.daily[p].nishiOrderBy = '';
+      db.daily[p].nishiOrderAt = nowStamp();
+      db.daily[p].nishiOrderBy = op;
       db.daily[p].deliveryCount = 0;
       db.daily[p].deliveryCommitted = false;
     }
@@ -2415,7 +2472,7 @@
     saveDb();
     renderNishi();
     renderHonbu();
-    return postGASFromNishi(op)
+    return postGASFromNishi(op, { nishiReceive: true })
       .then(function () { renderNishi(); renderHonbu(); })
       .catch(function (e) {
         renderNishi();
@@ -2431,7 +2488,10 @@
     if (!db.daily[p]) return;
     var d0 = db.daily[p];
     var expected = Number(d0.deliveryCount) || 0;
-    if (expected <= 0) return;
+    if (expected <= 0 || !d0.deliveryCommitted) {
+      alert('本部の納品確認がまだ届いていません。少し待って「最新データを取得」してから、もう一度受取確認してください。');
+      return;
+    }
     var inp = findPatTbodyInputByProduct('n-daily-tbody', 'n-recv-daily', p);
     var actualRaw = inp && inp.value !== '' ? parseFloat(inp.value) : NaN;
     var actual = !isNaN(actualRaw) ? actualRaw : expected;
@@ -2445,12 +2505,12 @@
     d0.deliveryCommitted = false;
     d0.nishiOrder = 0;
     d0.nishiOrderDate = '';
-    d0.nishiOrderAt = '';
-    d0.nishiOrderBy = '';
+    d0.nishiOrderAt = nowStamp();
+    d0.nishiOrderBy = op;
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGASFromNishi(op).then(function () {
+    return postGASFromNishi(op, { nishiReceive: true }).then(function () {
       renderNishi(); renderHonbu(); document.getElementById('honbu-info').textContent = '受取状態を送信しました';
       maybeAskResetWeekConsumedAfterAllReceived(beforeShip, op);
     });
@@ -2471,16 +2531,18 @@
       }
       if (!sel) return;
       var qty = parseInt(sel.value, 10) || 0;
-      db.supply[p].nishiOrder = qty;
+      var prevQty = Number(db.supply[p].nishiOrder) || 0;
       if (qty > 0) {
+        db.supply[p].nishiOrder = qty;
         db.supply[p].nishiOrderDate = today;
         db.supply[p].nishiOrderAt = nowStamp();
         db.supply[p].nishiOrderBy = op;
         changed.push({ product: p, qty: qty, date: db.supply[p].nishiOrderDate, kind: 'supply' });
-      } else {
+      } else if (prevQty > 0) {
+        db.supply[p].nishiOrder = 0;
         db.supply[p].nishiOrderDate = '';
-        db.supply[p].nishiOrderAt = '';
-        db.supply[p].nishiOrderBy = '';
+        db.supply[p].nishiOrderAt = nowStamp();
+        db.supply[p].nishiOrderBy = op;
       }
     });
     db.settings.dailyProducts.forEach(function (p) {
@@ -2492,16 +2554,18 @@
       }
       if (!sel) return;
       var qty = parseInt(sel.value, 10) || 0;
-      db.daily[p].nishiOrder = qty;
+      var prevDailyQty = Number(db.daily[p].nishiOrder) || 0;
       if (qty > 0) {
+        db.daily[p].nishiOrder = qty;
         db.daily[p].nishiOrderDate = today;
         db.daily[p].nishiOrderAt = nowStamp();
         db.daily[p].nishiOrderBy = op;
         changed.push({ product: p, qty: qty, date: db.daily[p].nishiOrderDate, kind: 'daily' });
-      } else {
+      } else if (prevDailyQty > 0) {
+        db.daily[p].nishiOrder = 0;
         db.daily[p].nishiOrderDate = '';
-        db.daily[p].nishiOrderAt = '';
-        db.daily[p].nishiOrderBy = '';
+        db.daily[p].nishiOrderAt = nowStamp();
+        db.daily[p].nishiOrderBy = op;
       }
     });
     try { if (op) localStorage.setItem(LS_NISHI_OPERATOR, op); } catch (e) {}
@@ -2542,12 +2606,12 @@
     (db.settings.supplyProducts || []).forEach(function (p) {
       var s = db.supply && db.supply[p];
       if (!s) return;
-      if ((Number(s.nishiReplenish) || 0) > 0) c++;
+      if ((Number(s.nishiReplenish) || 0) > 0 && s.nishiPatShipCommitted) c++;
     });
     (db.settings.dailyProducts || []).forEach(function (p) {
       var d0 = db.daily && db.daily[p];
       if (!d0) return;
-      if ((Number(d0.deliveryCount) || 0) > 0) c++;
+      if ((Number(d0.deliveryCount) || 0) > 0 && d0.deliveryCommitted) c++;
     });
     return c;
   }
@@ -2577,7 +2641,7 @@
     db.lastSyncedBy = op;
     saveDb();
     updateConsumedPeriodLabels();
-    return postGAS({ includeNishiConsumedSync: true, skipApplySnapshotFromPost: true, sender: op })
+    return postGASFromNishi(op, { includeNishiConsumedSync: true, omitNishiOrder: true })
       .then(function () {
         renderHonbu();
         renderNishi();
@@ -2668,7 +2732,7 @@
     db.lastSynced = nowStamp();
     db.lastSyncedBy = sen;
     saveDb();
-    return postGAS({ includeSettings: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true, sender: sen })
+    return postGAS({ includeSettings: true, includeNishiOrder: true, skipSuccessAlert: true, skipApplySnapshotFromPost: true, sender: sen })
       .then(function () {
         renderHonbu();
         renderNishi();
