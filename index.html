@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.42';
+  var ZAIKO_HTML_VERSION = '1.2.44';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1500,6 +1500,32 @@
   var postGASTail = Promise.resolve();
 
   /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
+  function postNishiBulkOrderNotify(op, items) {
+    var payload = {
+      token: token,
+      action: 'nishi_bulk_order',
+      isBulkOrder: true,
+      sender: op,
+      sentAt: nowStamp(),
+      bulkOrderItems: items || []
+    };
+    gasLog('POST 発注通知のみ', payload);
+    return fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+      mode: 'cors'
+    }).then(function (r) {
+      return r.text().then(function (text) { return { ok: r.ok, status: r.status, text: text }; });
+    }).then(function (x) {
+      gasLog('POST 発注通知応答 ' + x.status, x.text);
+      if (!x.ok) throw new Error('通知POST HTTP ' + x.status);
+      return x.text;
+    });
+  }
+
+  /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
   function postGASFromNishi(op, extra) {
     var base = { sender: op, skipApplySnapshotFromPost: true, fromNishi: true };
     if (extra && typeof extra === 'object') {
@@ -1512,14 +1538,24 @@
     if (!lw || typeof lw !== 'object') return '';
     if (lw.skipped === 'not_bulk_order') return '（LW: 一括発注以外のため通知なし）';
     if (lw.skipped === 'no_order_lines') return '（LW: 発注行が組み立てられず通知スキップ）';
-    if (!Array.isArray(lw.results) || !lw.results.length) {
-      return '（LW: 送信結果なし userCount=' + (lw.userCount != null ? lw.userCount : '?') + '）';
+    var parts = [];
+    if (lw.honbuStatus) parts.push('本部=' + lw.honbuStatus);
+    if (lw.honbuPing && lw.honbuPing.status != null) {
+      parts.push('本部Ping=' + lw.honbuPing.status);
     }
-    return lw.results.map(function (r) {
+    if (lw.honbuEarly && lw.honbuEarly.status != null) {
+      parts.push('本部早期=' + lw.honbuEarly.status);
+    }
+    if (!Array.isArray(lw.results) || !lw.results.length) {
+      parts.push('（LW: 送信結果なし userCount=' + (lw.userCount != null ? lw.userCount : '?') + '）');
+      return parts.join(' ');
+    }
+    parts.push(lw.results.map(function (r) {
       if (r.error) return (r.userId || '?') + '=ERR';
       var uid = r.userId ? String(r.userId).split('@')[0] : '?';
       return uid + '=' + (r.status != null ? r.status : '?');
-    }).join(', ');
+    }).join(', '));
+    return parts.join(' / ');
   }
 
   function extractGasVersionFromPostText(text) {
@@ -2616,34 +2652,43 @@
       return;
     }
     var nInfo = document.getElementById('nishi-import-info');
-    if (nInfo) nInfo.textContent = '一括発注を送信中…（完了までこのまま待ってください）';
+    if (nInfo) nInfo.textContent = '発注通知を送信中…（完了までこのまま待ってください）';
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
-    return postGASFromNishi(op, { isBulkOrder: true, bulkOrderItems: changed }).then(function (text) {
-      var lw = extractLwNotifyFromPostText(text);
+    return postNishiBulkOrderNotify(op, changed).then(function (notifyText) {
+      var lw = extractLwNotifyFromPostText(notifyText);
       var sum = lw ? formatLwNotifySummary(lw) : '';
       if (lw) {
         console.log('LW通知結果', lw);
         if (lw.orderPreview) console.log('LW本文プレビュー', lw.orderPreview);
         gasLog('LW通知結果', lw);
       }
-      var gasVer = extractGasVersionFromPostText(text);
+      var gasVer = extractGasVersionFromPostText(notifyText);
       setAppVersionLabel(gasVer);
-      if (nInfo) {
-        var preview = (lw && lw.orderPreview) ? (' / 本文に' + (String(lw.orderPreview).indexOf('■パット類') >= 0 ? 'パットあり' : 'パットなし')) : '';
-        nInfo.textContent = '送信完了 GAS ' + (gasVer || '不明') + ' / LW: ' + (sum || 'なし') + preview;
-      }
-      var info = document.getElementById('honbu-info');
-      if (info) info.textContent = nInfo ? nInfo.textContent : ('発注送信完了 LW: ' + (sum || 'なし'));
-      alert(
-        '送信完了（これがGAS/通知の結果です）\n'
-        + 'GAS版: ' + (gasVer || '不明') + '\n'
-        + 'LW結果: ' + (sum || 'なし') + '\n'
-        + '応答先頭: ' + previewGasResponse(text)
-      );
-      renderNishi();
-      renderHonbu();
+      if (nInfo) nInfo.textContent = '通知完了。在庫データを保存中…';
+      return postGASFromNishi(op).then(function () {
+        if (nInfo) {
+          nInfo.textContent = '送信完了 GAS ' + (gasVer || '不明') + ' / LW: ' + (sum || 'なし');
+        }
+        var info = document.getElementById('honbu-info');
+        if (info) info.textContent = nInfo ? nInfo.textContent : ('発注送信完了 LW: ' + (sum || 'なし'));
+        alert(
+          '送信完了（これがGAS/通知の結果です）\n'
+          + 'GAS版: ' + (gasVer || '不明') + '\n'
+          + 'LW結果: ' + (sum || 'なし') + '\n'
+          + '応答先頭: ' + previewGasResponse(notifyText)
+        );
+        renderNishi();
+        renderHonbu();
+      }).catch(function (eSave) {
+        if (nInfo) nInfo.textContent = '通知は送信済み。保存エラー: ' + String(eSave);
+        alert(
+          '通知は送りました。在庫データの保存に失敗しました。\n'
+          + String(eSave) + '\n'
+          + 'LW結果: ' + (sum || 'なし')
+        );
+      });
     }).catch(function (e) {
       if (nInfo) nInfo.textContent = '発注送信エラー: ' + String(e);
       alert('発注の送信に失敗しました。\n' + String(e) + '\n\nこの場合、本部への通知は送られていません。');
