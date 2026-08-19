@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.40';
+  var ZAIKO_HTML_VERSION = '1.2.42';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1225,6 +1225,7 @@
         delete rowCopy.nishiOrderAt;
         delete rowCopy.nishiOrderBy;
       }
+      supplyForSend[p] = rowCopy;
     });
 
     var dailyForSend = {};
@@ -1524,13 +1525,22 @@
   function extractGasVersionFromPostText(text) {
     if (!text || typeof text !== 'string') return '';
     var o = parseGas(text);
-    if (!o || typeof o !== 'object') return '';
-    if (o.gasVersion) return String(o.gasVersion);
-    var lw = extractLwNotifyFromPostText(text);
-    if (lw && lw.gasVersion) return String(lw.gasVersion);
-    var body = resolveGASBody(o);
-    if (body && body.gasVersion) return String(body.gasVersion);
-    return '';
+    if (o && typeof o === 'object') {
+      if (o.gasVersion) return String(o.gasVersion);
+      var lw = (o.lwNotify && typeof o.lwNotify === 'object') ? o.lwNotify : null;
+      if (lw && lw.gasVersion) return String(lw.gasVersion);
+      var body = resolveGASBody(o);
+      if (body && body.gasVersion) return String(body.gasVersion);
+    }
+    var m = String(text).match(/"gasVersion"\s*:\s*"([^"]+)"/);
+    return m ? m[1] : '';
+  }
+
+  function previewGasResponse(text) {
+    var s = text == null ? '' : String(text).replace(/\s+/g, ' ').trim();
+    if (!s) return '(空の応答)';
+    if (s.length > 180) s = s.slice(0, 180) + '…';
+    return s;
   }
 
   function extractLwNotifyFromPostText(text) {
@@ -2630,7 +2640,7 @@
         '送信完了（これがGAS/通知の結果です）\n'
         + 'GAS版: ' + (gasVer || '不明') + '\n'
         + 'LW結果: ' + (sum || 'なし') + '\n'
-        + '画面上部の版表示と、西タブの「データ送受信」の下にも同じ内容が出ます。'
+        + '応答先頭: ' + previewGasResponse(text)
       );
       renderNishi();
       renderHonbu();
