@@ -375,7 +375,7 @@
   /**
    * クライアント（index.html）の版。些細な修正でも内容が変わったら必ず 1 つ上げる（再読み込みで未更新端末の切り分け用）。
    */
-  var ZAIKO_HTML_VERSION = '1.2.37';
+  var ZAIKO_HTML_VERSION = '1.2.40';
   var GAS_DEBUG = true;
   function loadGasEndpoints() {
     try {
@@ -1486,6 +1486,16 @@
     saveDb();
   }
 
+  var lastGasVersion = '';
+  function setAppVersionLabel(gasVer) {
+    if (gasVer) lastGasVersion = String(gasVer);
+    var el = document.getElementById('facilitySub');
+    if (!el) return;
+    el.textContent = lastGasVersion
+      ? ('UI v' + ZAIKO_HTML_VERSION + ' / GAS v' + lastGasVersion)
+      : ('UI v' + ZAIKO_HTML_VERSION);
+  }
+
   var postGASTail = Promise.resolve();
 
   /** 西タブからの POST はローカル確定後に応答マージで上書きしない（受取リセットの巻き戻し防止） */
@@ -1509,6 +1519,18 @@
       var uid = r.userId ? String(r.userId).split('@')[0] : '?';
       return uid + '=' + (r.status != null ? r.status : '?');
     }).join(', ');
+  }
+
+  function extractGasVersionFromPostText(text) {
+    if (!text || typeof text !== 'string') return '';
+    var o = parseGas(text);
+    if (!o || typeof o !== 'object') return '';
+    if (o.gasVersion) return String(o.gasVersion);
+    var lw = extractLwNotifyFromPostText(text);
+    if (lw && lw.gasVersion) return String(lw.gasVersion);
+    var body = resolveGASBody(o);
+    if (body && body.gasVersion) return String(body.gasVersion);
+    return '';
   }
 
   function extractLwNotifyFromPostText(text) {
@@ -1641,6 +1663,7 @@
     var body = resolveGASBody(o);
     gasLog((fromLabel || 'GET 受信') + ' resolveGASBody', body);
     mergeFromServer(body);
+    setAppVersionLabel(extractGasVersionFromPostText(t) || (o && o.gasVersion) || (body && body.gasVersion));
     if (!trimNonemptyResetAt(db.nishiConsumedResetAt)) {
       var fb = extractNishiConsumedResetFromGasText(t);
       if (fb) {
@@ -2575,8 +2598,15 @@
       renderNishi();
       return;
     }
-    var msg = '一括発注の内容\n' + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n');
-    alert(msg);
+    var msg = '一括発注の内容\n'
+      + changed.map(function (x) { return x.product + ': ' + x.qty + ' (' + x.date + ')'; }).join('\n')
+      + '\n\nOKで送信します。\n※この画面にはGAS情報は出ません。送信完了後にもう一度結果が出ます。';
+    if (!confirm(msg)) {
+      renderNishi();
+      return;
+    }
+    var nInfo = document.getElementById('nishi-import-info');
+    if (nInfo) nInfo.textContent = '一括発注を送信中…（完了までこのまま待ってください）';
     db.lastSynced = nowStamp();
     db.lastSyncedBy = op;
     saveDb();
@@ -2588,15 +2618,25 @@
         if (lw.orderPreview) console.log('LW本文プレビュー', lw.orderPreview);
         gasLog('LW通知結果', lw);
       }
-      var nInfo = document.getElementById('nishi-import-info');
+      var gasVer = extractGasVersionFromPostText(text);
+      setAppVersionLabel(gasVer);
       if (nInfo) {
         var preview = (lw && lw.orderPreview) ? (' / 本文に' + (String(lw.orderPreview).indexOf('■パット類') >= 0 ? 'パットあり' : 'パットなし')) : '';
-        nInfo.textContent = sum ? ('発注を送信しました。LW: ' + sum + preview) : '発注を送信しました（LW結果なし＝GAS未更新の可能性）';
+        nInfo.textContent = '送信完了 GAS ' + (gasVer || '不明') + ' / LW: ' + (sum || 'なし') + preview;
       }
       var info = document.getElementById('honbu-info');
-      if (info && sum) info.textContent = '発注を送信しました。LW: ' + sum;
+      if (info) info.textContent = nInfo ? nInfo.textContent : ('発注送信完了 LW: ' + (sum || 'なし'));
+      alert(
+        '送信完了（これがGAS/通知の結果です）\n'
+        + 'GAS版: ' + (gasVer || '不明') + '\n'
+        + 'LW結果: ' + (sum || 'なし') + '\n'
+        + '画面上部の版表示と、西タブの「データ送受信」の下にも同じ内容が出ます。'
+      );
       renderNishi();
       renderHonbu();
+    }).catch(function (e) {
+      if (nInfo) nInfo.textContent = '発注送信エラー: ' + String(e);
+      alert('発注の送信に失敗しました。\n' + String(e) + '\n\nこの場合、本部への通知は送られていません。');
     });
   }
 
@@ -3246,9 +3286,8 @@
 
   // Init
   (function init() {
-    (function setAppVersionLabel() {
-      var el = document.getElementById('facilitySub');
-      if (el) el.textContent = 'UI v' + ZAIKO_HTML_VERSION;
+    (function setAppVersionLabelInit() {
+      setAppVersionLabel('');
     })();
     ensureProductRows();
     var gSend = document.getElementById('global-sender');
